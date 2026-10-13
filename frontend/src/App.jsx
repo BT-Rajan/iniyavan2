@@ -712,31 +712,31 @@ function Topic({id:first,back,toast,role}){const {t:tr}=useI18n();
       <small>{tr('topic.position',{a:t.nav.position,b:t.nav.total})}</small>
       <button className={'btn'+(t.nav.next?'':' ghost')} disabled={!t.nav.next} onClick={()=>jump(t.nav.next.id)} aria-label={t.nav.next?tr('topic.nextTopic',{title:t.nav.next.title}):tr('topic.noNext')}><span>{t.nav.next?t.nav.next.title:tr('home.next')}</span><ChevronRight size={18}/></button></nav>}</div></>}
 
-function TopicEditor({role,toast,done,cancel,edit,unitId}){  // edit = {id} of a topic, or null for a new one in unitId
+function TopicEditor({role,toast,done,cancel,edit,unitId}){const {t:tr}=useI18n();  // edit = {id} of a topic, or null for a new one in unitId
   const fac=role==='faculty',[prev,setPrev]=useState(false),[up,setUp]=useState(false),fileRef=useRef(null),taRef=useRef(null),[busy,setBusy]=useState(false)
   const [tree,setTree]=useState([]),[f,setF]=useState({title:'',unit_id:unitId||'',content:'',sample_content:'',question_pattern:'',guideline:'',published:!fac,due:''}),[cid,setCid]=useState(null)
   useEffect(()=>{api('/tree').then(setTree).catch(()=>{});if(edit)api('/topics/'+edit.id).then(t=>{setCid(t.course_id);setF({title:t.title,unit_id:t.unit_id||'',content:t.content||'',sample_content:t.sample_content||'',question_pattern:t.question_pattern||'',guideline:t.guideline||'',published:t.published!==false,due:localInput(t.learning_due_at)})}).catch(e=>toast(e.message))},[])
   const set=k=>e=>setF({...f,[k]:e.target.value})
-  const pickImg=async e=>{const file=e.target.files[0];e.target.value='';if(!file)return;if(file.size>3*1024*1024)return toast('Image is too large. Keep it under 3 MB.')
-    setUp(true);try{const r=await fetch('/api/uploads',{method:'POST',headers:{'Content-Type':file.type||'application/octet-stream',Authorization:'Bearer '+localStorage.t},body:file});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.detail||'Upload failed')
-      const pos=taRef.current?.selectionStart??f.content.length;setF({...f,content:f.content.slice(0,pos)+`\n\n![Describe the image](${d.url})\n\n`+f.content.slice(pos)});toast('Image added')}catch(er){toast(er.message)}setUp(false)}
+  const pickImg=async e=>{const file=e.target.files[0];e.target.value='';if(!file)return;if(file.size>3*1024*1024)return toast(tr('topic.imgTooBig'))
+    setUp(true);try{const r=await fetch('/api/uploads',{method:'POST',headers:{'Content-Type':file.type||'application/octet-stream',Authorization:'Bearer '+localStorage.t},body:file});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.detail||tr('topic.uploadFailed'))
+      const pos=taRef.current?.selectionStart??f.content.length;setF({...f,content:f.content.slice(0,pos)+`\n\n![${tr('topic.imgAlt')}](${d.url})\n\n`+f.content.slice(pos)});toast(tr('topic.imgAdded'))}catch(er){toast(er.message)}setUp(false)}
   const all=tree.flatMap(p=>p.semesters.flatMap(s=>s.courses.filter(c=>!c.shared&&c.editable).flatMap(c=>c.units.map(n=>({...n,course_id:c.id,label:`${c.name} › ${n.name}`})))))
   const units=role==='admin'?all:all.filter(n=>n.course_id===cid)  // faculty move a topic only between units of its own course
   const here=all.find(n=>n.id===+f.unit_id)
-  const save=async()=>{setBusy(true);try{await api(edit?'/topics/'+edit.id:'/topics',{method:edit?'PUT':'POST',body:{...f,due:undefined,unit_id:+f.unit_id,published:f.published!==false,learning_due_at:f.due?new Date(f.due).toISOString():null}});toast(edit?'Changes saved':'Topic added');done()}catch(e){toast(e.message)}setBusy(false)}
+  const save=async()=>{setBusy(true);try{await api(edit?'/topics/'+edit.id:'/topics',{method:edit?'PUT':'POST',body:{...f,due:undefined,unit_id:+f.unit_id,published:f.published!==false,learning_due_at:f.due?new Date(f.due).toISOString():null}});toast(edit?tr('topic.changesSaved'):tr('topic.added'));done()}catch(e){toast(e.message)}setBusy(false)}
   const T=(k,l,ph)=><><label>{l}</label><textarea placeholder={ph} value={f[k]} onChange={set(k)}/></>
-  return <><Bar title={edit?'Edit topic':'New topic'} sub={here?.label} back={cancel}/><div className="main">
-    {edit&&units.length>1&&<><label>Unit</label><select value={f.unit_id} onChange={set('unit_id')}>{units.map(o=><option key={o.id} value={o.id}>{o.label}</option>)}</select></>}
-    <label>Topic title</label><input value={f.title} onChange={set('title')} placeholder="First law of thermodynamics"/>
-    <label>Topic content</label><div className="tools"><button type="button" disabled={up} onClick={()=>fileRef.current.click()}>{up?'Uploading…':'Add image'}</button><button type="button" onClick={()=>setPrev(!prev)}>{prev?'Back to editing':'Preview'}</button></div>
+  return <><Bar title={edit?tr('topic.edit'):tr('topic.newTopic')} sub={here?.label} back={cancel}/><div className="main">
+    {edit&&units.length>1&&<><label>{tr('topic.unit')}</label><select value={f.unit_id} onChange={set('unit_id')}>{units.map(o=><option key={o.id} value={o.id}>{o.label}</option>)}</select></>}
+    <label>{tr('topic.title')}</label><input value={f.title} onChange={set('title')} placeholder={tr('topic.titlePh')}/>
+    <label>{tr('topic.content')}</label><div className="tools"><button type="button" disabled={up} onClick={()=>fileRef.current.click()}>{up?tr('topic.uploading'):tr('topic.addImage')}</button><button type="button" onClick={()=>setPrev(!prev)}>{prev?tr('topic.backToEditing'):tr('topic.preview')}</button></div>
     <input ref={fileRef} type="file" hidden accept="image/png,image/jpeg,image/gif,image/webp" onChange={pickImg}/>
-    {prev?<div className="prose"><Md>{f.content||'Nothing to preview yet.'}</Md></div>:<textarea ref={taRef} placeholder="Paste notes or syllabus text" value={f.content} onChange={set('content')}/>}
-    <p className="known">{'Equations: $x^2$ inline. For a centred block, put $$ on its own line above and below the equation. Chemistry: $\\ce{CaCO3 + CO2 + H2O -> Ca(HCO3)2}$'}</p>{T('question_pattern','Question pattern','e.g. 2 marks: define · 13 marks: derive + numerical')}
-    <label>Learning deadline</label><div className="qopt"><input type="datetime-local" aria-label="Learning deadline" value={f.due} onChange={set('due')}/>{f.due&&<button type="button" className="tool" onClick={()=>setF({...f,due:''})}>No deadline</button>}</div>
-    <p className="known" style={{marginTop:4}}>{f.due?'Students should have learnt this topic by then. They can still open it afterwards.':'No deadline'}</p>
-    <label className="chk"><input type="checkbox" checked={f.published!==false} onChange={e=>setF({...f,published:e.target.checked})}/> Published (students can see this topic)</label>
-    {T('sample_content','Sample content','A sample question and answer')}{T('guideline','How an answer should be','Intro, labelled diagram, steps, units, conclusion')}
-    <button className="btn" disabled={busy||!f.title.trim()} onClick={save}>{edit?'Save changes':'Save topic'}</button></div></>}
+    {prev?<div className="prose"><Md>{f.content||tr('topic.nothingPreview')}</Md></div>:<textarea ref={taRef} placeholder={tr('topic.pasteHint')} value={f.content} onChange={set('content')}/>}
+    <p className="known">{tr('topic.mathHint')}</p>{T('question_pattern',tr('topic.qPattern'),tr('topic.qPatternPh'))}
+    <label>{tr('topic.deadline')}</label><div className="qopt"><input type="datetime-local" aria-label={tr('topic.deadline')} value={f.due} onChange={set('due')}/>{f.due&&<button type="button" className="tool" onClick={()=>setF({...f,due:''})}>{tr('learn.noDeadline')}</button>}</div>
+    <p className="known" style={{marginTop:4}}>{f.due?tr('topic.deadlineHint'):tr('learn.noDeadline')}</p>
+    <label className="chk"><input type="checkbox" checked={f.published!==false} onChange={e=>setF({...f,published:e.target.checked})}/> {tr('topic.publishedCheck')}</label>
+    {T('sample_content',tr('topic.sampleContent'),tr('topic.sampleHint'))}{T('guideline',tr('topic.howAnswer'),tr('topic.answerHint'))}
+    <button className="btn" disabled={busy||!f.title.trim()} onClick={save}>{edit?tr('topic.saveChanges'):tr('topic.saveTopic')}</button></div></>}
 function UnitSheet({un,cid,courses,close,done,toast}){  // courses is given to admins only: moving a unit to another course is theirs to do
   const isNew=!un.id,[f,setF]=useState({name:un.name||'',course:cid}),[busy,setBusy]=useState(false)
   const save=async()=>{setBusy(true);try{await api(isNew?'/units':'/units/'+un.id,{method:isNew?'POST':'PUT',body:{name:f.name,course_id:+f.course}});toast(isNew?'Unit added':'Changes saved');done()}catch(e){toast(e.message)}setBusy(false)}
