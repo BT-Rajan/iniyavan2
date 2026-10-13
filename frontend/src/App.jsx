@@ -64,7 +64,7 @@ export default function App(){
   useEffect(()=>{const k=e=>e.key==='Escape'&&setOpen(false);addEventListener('keydown',k);return()=>removeEventListener('keydown',k)},[])
   useEffect(()=>{document.body.style.overflow=open?'hidden':''},[open])
   if(!ready)return null
-  if(resetTok)return <ResetPassword token={resetTok} toast={toast} msg={msg} canReset={canReset} appName={name} logo={logo} done={u=>{history.replaceState(null,'',location.pathname);setResetTok(null);setUser(u);toast('Password changed. You are signed in.')}} leave={()=>{history.replaceState(null,'',location.pathname);setResetTok(null)}}/>
+  if(resetTok)return <ResetPassword token={resetTok} toast={toast} msg={msg} canReset={canReset} appName={name} logo={logo} done={u=>{history.replaceState(null,'',location.pathname);setResetTok(null);setUser(u);toast(t('reset.done'))}} leave={()=>{history.replaceState(null,'',location.pathname);setResetTok(null)}}/>
   if(!user)return <Login onIn={setUser} toast={toast} msg={msg} appName={name} logo={logo} canReset={canReset} canReg={canReg}/>
   if(user.must_change)return <ChangePassword forced appName={name} logo={logo} toast={toast} msg={msg} done={()=>setUser({...user,must_change:false})} out={()=>{localStorage.removeItem('t');setUser(null)}}/>
   const student=user.role==='student',page=pageSel||'home',admin=user.role==='admin',go=k=>{setPage(k);setOpen(false)},openIn=nav=>{setStart(nav);go('learn')}
@@ -96,10 +96,10 @@ function Login({onIn,toast,msg,appName,logo,canReset,canReg}){
   const go=async()=>{setB(true);try{const r=await api('/login',{method:'POST',body:f});localStorage.t=r.token;onIn(r.user)}catch(e){toast(e.message)}setB(false)}
   const forgot=async()=>{setB(true);try{setSent((await api('/forgot',{method:'POST',body:{email:f.email}})).message)}catch(e){toast(e.message)}setB(false)}
   if(mode==='register')return <Register onIn={onIn} toast={toast} msg={msg} appName={appName} logo={logo} back={()=>setMode('in')}/>
-  if(mode==='forgot')return <div className="login"><Lockup logo={logo} name={appName}/><h1>Forgot your password?</h1>{sent?<p>{sent}</p>:<><p>Enter your account email and we will send a link to choose a new one.</p>
-    <label>Email</label><input type="email" autoComplete="email" value={f.email} onChange={e=>setF({...f,email:e.target.value})} onKeyDown={e=>e.key==='Enter'&&forgot()}/>
-    <button className="btn" disabled={b||!f.email} onClick={forgot}>Send reset link</button></>}
-    <button className="btn ghost" onClick={()=>{setMode('in');setSent('')}}>Back to sign in</button><Toast msg={msg}/></div>
+  if(mode==='forgot')return <div className="login"><Lockup logo={logo} name={appName}/><h1>{t('forgot.title')}</h1>{sent?<p>{sent}</p>:<><p>{t('forgot.hint')}</p>
+    <label>{t('login.email')}</label><input type="email" autoComplete="email" value={f.email} onChange={e=>setF({...f,email:e.target.value})} onKeyDown={e=>e.key==='Enter'&&forgot()}/>
+    <button className="btn" disabled={b||!f.email} onClick={forgot}>{t('forgot.send')}</button></>}
+    <button className="btn ghost" onClick={()=>{setMode('in');setSent('')}}>{t('forgot.back')}</button><Toast msg={msg}/></div>
   return <div className="login"><Lockup logo={logo} name={appName}/><h1>{t('login.title')}</h1><p>{t('login.hint')}</p>
     <label>{t('login.email')}</label><input type="email" autoComplete="email" value={f.email} onChange={e=>setF({...f,email:e.target.value})}/>
     <label>{t('login.password')}</label><input type="password" autoComplete="current-password" value={f.password} onChange={e=>setF({...f,password:e.target.value})} onKeyDown={e=>e.key==='Enter'&&go()}/>
@@ -107,27 +107,28 @@ function Login({onIn,toast,msg,appName,logo,canReset,canReg}){
     {canReset?<button className="btn ghost" onClick={()=>setMode('forgot')}>{t('login.forgot')}</button>:<p className="known">{t('login.forgot')} {t('login.forgotHint')}</p>}{canReg&&<button className="btn ghost" onClick={()=>setMode('register')}>{t('login.register')}</button>}<Toast msg={msg}/></div>}
 
 function Register({onIn,toast,msg,appName,logo,back}){
+  const {t}=useI18n()
   const [f,setF]=useState({name:'',institution:'',id_number:'',email:'',phone:'',password:''}),[stage,setStage]=useState('form'),[code,setCode]=useState(''),[b,setB]=useState(false),[wait,setWait]=useState(0),[info,setInfo]=useState(''),[st,setSt]=useState({domains:[]})
   useEffect(()=>{api('/register/status').then(setSt).catch(()=>{})},[])
   useEffect(()=>{if(wait<=0)return;const t=setTimeout(()=>setWait(wait-1),1000);return()=>clearTimeout(t)},[wait])
   const set=k=>e=>setF({...f,[k]:e.target.value}),ok=Object.values(f).every(v=>v.trim())
   const start=async()=>{setB(true);try{const r=await api('/register/start',{method:'POST',body:f});setInfo(r.message);setStage('code');setWait(30)}catch(e){toast(e.message)}setB(false)}
   const verify=async()=>{setB(true);try{const r=await api('/register/verify',{method:'POST',body:{email:f.email,code}});localStorage.t=r.token;onIn(r.user)}catch(e){toast(e.message)}setB(false)}
-  const resend=async()=>{try{await api('/register/resend',{method:'POST',body:{email:f.email}});toast('A new code is on its way');setWait(30);setCode('')}catch(e){toast(e.message)}}
-  if(stage==='code')return <div className="login"><Lockup logo={logo} name={appName}/><h1>Enter the code</h1><p>{info}</p>
-    <label htmlFor="otp">6-digit code</label><input id="otp" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={code} onChange={e=>setCode(e.target.value.replace(/\D/g,''))} onKeyDown={e=>e.key==='Enter'&&code.length===6&&verify()} style={{letterSpacing:'.4em',fontSize:22,textAlign:'center'}}/>
-    <button className="btn" disabled={b||code.length!==6} onClick={verify}>Verify and create my account</button>
-    <button className="btn ghost" disabled={wait>0} onClick={resend}>{wait>0?`Send a new code in ${wait}s`:'Send a new code'}</button>
-    <button className="btn ghost" onClick={()=>{setStage('form');setCode('')}}>Change my details</button><Toast msg={msg}/></div>
-  return <div className="login"><Lockup logo={logo} name={appName}/><h1>Create an account</h1><p>We will email you a code to confirm your address.{st.domains.length>0&&' Use your institution email ('+st.domains.map(d=>'@'+d).join(', ')+').'}</p>
-    <label htmlFor="rn">Full name</label><input id="rn" autoComplete="name" value={f.name} onChange={set('name')}/>
-    <label htmlFor="ri">Institution</label><input id="ri" autoComplete="organization" value={f.institution} onChange={set('institution')}/>
-    <label htmlFor="rid">ID number</label><input id="rid" value={f.id_number} onChange={set('id_number')} placeholder="Roll or employee number"/>
-    <label htmlFor="re">Email</label><input id="re" type="email" autoComplete="email" value={f.email} onChange={set('email')}/>
-    <label htmlFor="rp">Phone</label><input id="rp" type="tel" autoComplete="tel" value={f.phone} onChange={set('phone')} placeholder="+91 98765 43210"/>
-    <label htmlFor="rw">Password</label><input id="rw" type="password" autoComplete="new-password" value={f.password} onChange={set('password')} onKeyDown={e=>e.key==='Enter'&&ok&&start()}/>
-    <p className="known">At least 8 characters. AI help on this account uses your own DeepSeek API key, which you add after signing in.</p>
-    <button className="btn" disabled={b||!ok} onClick={start}>Send me a code</button><button className="btn ghost" onClick={back}>Back to sign in</button><Toast msg={msg}/></div>}
+  const resend=async()=>{try{await api('/register/resend',{method:'POST',body:{email:f.email}});toast(t('register.codeSent'));setWait(30);setCode('')}catch(e){toast(e.message)}}
+  if(stage==='code')return <div className="login"><Lockup logo={logo} name={appName}/><h1>{t('register.code.title')}</h1><p>{info}</p>
+    <label htmlFor="otp">{t('register.code.label')}</label><input id="otp" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={code} onChange={e=>setCode(e.target.value.replace(/\D/g,''))} onKeyDown={e=>e.key==='Enter'&&code.length===6&&verify()} style={{letterSpacing:'.4em',fontSize:22,textAlign:'center'}}/>
+    <button className="btn" disabled={b||code.length!==6} onClick={verify}>{t('register.code.verify')}</button>
+    <button className="btn ghost" disabled={wait>0} onClick={resend}>{wait>0?t('register.resendIn',{s:wait}):t('register.resend')}</button>
+    <button className="btn ghost" onClick={()=>{setStage('form');setCode('')}}>{t('register.changeDetails')}</button><Toast msg={msg}/></div>
+  return <div className="login"><Lockup logo={logo} name={appName}/><h1>{t('register.title')}</h1><p>{t('register.hint')}{st.domains.length>0&&' '+t('register.domains',{domains:st.domains.map(d=>'@'+d).join(', ')})}</p>
+    <label htmlFor="rn">{t('register.name')}</label><input id="rn" autoComplete="name" value={f.name} onChange={set('name')}/>
+    <label htmlFor="ri">{t('register.institution')}</label><input id="ri" autoComplete="organization" value={f.institution} onChange={set('institution')}/>
+    <label htmlFor="rid">{t('register.id')}</label><input id="rid" value={f.id_number} onChange={set('id_number')} placeholder={t('register.idPlaceholder')}/>
+    <label htmlFor="re">{t('login.email')}</label><input id="re" type="email" autoComplete="email" value={f.email} onChange={set('email')}/>
+    <label htmlFor="rp">{t('register.phone')}</label><input id="rp" type="tel" autoComplete="tel" value={f.phone} onChange={set('phone')} placeholder="+91 98765 43210"/>
+    <label htmlFor="rw">{t('login.password')}</label><input id="rw" type="password" autoComplete="new-password" value={f.password} onChange={set('password')} onKeyDown={e=>e.key==='Enter'&&ok&&start()}/>
+    <p className="known">{t('register.passwordHint')}</p>
+    <button className="btn" disabled={b||!ok} onClick={start}>{t('register.send')}</button><button className="btn ghost" onClick={back}>{t('forgot.back')}</button><Toast msg={msg}/></div>}
 
 function MyAiKey({toast}){
   const confirm=useConfirm()
@@ -166,30 +167,32 @@ function SelfReg({cfg,run}){
     <p className="known">Self-registered people always use their own DeepSeek key, never yours.</p></>}
 
 function ResetPassword({token,toast,msg,done,leave,canReset,appName,logo}){
+  const {t}=useI18n()
   const [ok,setOk]=useState(null),[f,setF]=useState({password:'',again:''}),[b,setB]=useState(false)
   useEffect(()=>{api('/reset/check',{method:'POST',body:{token}}).then(r=>setOk(r.valid)).catch(()=>setOk(false))},[token])
-  const go=async()=>{if(f.password.length<8)return toast('Use at least 8 characters');if(f.password!==f.again)return toast("The passwords don't match")
+  const go=async()=>{if(f.password.length<8)return toast(t('password.min'));if(f.password!==f.again)return toast(t('password.mismatch'))
     setB(true);try{const r=await api('/reset',{method:'POST',body:{token,new_password:f.password}});localStorage.t=r.token;done(r.user)}catch(e){toast(e.message)}setB(false)}
   if(ok===null)return null
-  if(!ok)return <div className="login"><Lockup logo={logo} name={appName}/><h1>This link has expired</h1><p>Reset links work once and only for a short time.{canReset?' Ask for a new one from the sign-in page.':' Ask your admin to reset your password.'}</p><button className="btn" onClick={leave}>Go to sign in</button></div>
-  return <div className="login"><Lockup logo={logo} name={appName}/><h1>Choose a new password</h1><p>Use at least 8 characters.</p>
-    <label>New password</label><input type="password" autoComplete="new-password" value={f.password} onChange={e=>setF({...f,password:e.target.value})}/>
-    <label>Repeat new password</label><input type="password" autoComplete="new-password" value={f.again} onChange={e=>setF({...f,again:e.target.value})} onKeyDown={e=>e.key==='Enter'&&go()}/>
-    <button className="btn" disabled={b} onClick={go}>Save and sign in</button><Toast msg={msg}/></div>}
+  if(!ok)return <div className="login"><Lockup logo={logo} name={appName}/><h1>{t('reset.expired')}</h1><p>{t('reset.expiredHint')}{canReset?' '+t('reset.askNew'):' '+t('reset.askAdmin')}</p><button className="btn" onClick={leave}>{t('reset.goSignIn')}</button></div>
+  return <div className="login"><Lockup logo={logo} name={appName}/><h1>{t('reset.title')}</h1><p>{t('password.minHint')}</p>
+    <label>{t('password.new')}</label><input type="password" autoComplete="new-password" value={f.password} onChange={e=>setF({...f,password:e.target.value})}/>
+    <label>{t('password.repeatNew')}</label><input type="password" autoComplete="new-password" value={f.again} onChange={e=>setF({...f,again:e.target.value})} onKeyDown={e=>e.key==='Enter'&&go()}/>
+    <button className="btn" disabled={b} onClick={go}>{t('reset.save')}</button><Toast msg={msg}/></div>}
 
 function ChangePassword({forced,appName,logo,toast,msg,done,out}){
+  const {t}=useI18n()
   const [f,setF]=useState({current:'',password:'',again:''}),[b,setB]=useState(false),set=k=>e=>setF({...f,[k]:e.target.value})
-  const go=async()=>{if(f.password.length<8)return toast('Use at least 8 characters');if(f.password!==f.again)return toast("The new passwords don't match")
-    setB(true);try{const d=await api('/me/password',{method:'POST',body:{current:f.current,new_password:f.password}});if(d.token)localStorage.t=d.token;toast('Password changed');done()}catch(e){toast(e.message)}setB(false)}
-  const form=<><label>{forced?'Password your admin gave you':'Current password'}</label><input type="password" autoComplete="current-password" value={f.current} onChange={set('current')}/>
-    <label>New password (8+ characters)</label><input type="password" autoComplete="new-password" value={f.password} onChange={set('password')}/>
-    <label>Repeat new password</label><input type="password" autoComplete="new-password" value={f.again} onChange={set('again')} onKeyDown={e=>e.key==='Enter'&&go()}/>
-    <button className="btn" disabled={b} onClick={go}>Change password</button></>
-  if(forced)return <div className="login"><Lockup logo={logo} name={appName}/><h1>Choose your own password</h1><p>Your admin set a temporary password. Pick a new one to continue.</p>{form}<button className="btn ghost" onClick={out}>Sign out</button><Toast msg={msg}/></div>
-  return <><Bar title="Change password"/><div className="main">{form}</div></>}
+  const go=async()=>{if(f.password.length<8)return toast(t('password.min'));if(f.password!==f.again)return toast(t('password.mismatchNew'))
+    setB(true);try{const d=await api('/me/password',{method:'POST',body:{current:f.current,new_password:f.password}});if(d.token)localStorage.t=d.token;toast(t('password.changed'));done()}catch(e){toast(e.message)}setB(false)}
+  const form=<><label>{forced?t('password.adminGave'):t('password.current')}</label><input type="password" autoComplete="current-password" value={f.current} onChange={set('current')}/>
+    <label>{t('password.newMin')}</label><input type="password" autoComplete="new-password" value={f.password} onChange={set('password')}/>
+    <label>{t('password.repeatNew')}</label><input type="password" autoComplete="new-password" value={f.again} onChange={set('again')} onKeyDown={e=>e.key==='Enter'&&go()}/>
+    <button className="btn" disabled={b} onClick={go}>{t('nav.password')}</button></>
+  if(forced)return <div className="login"><Lockup logo={logo} name={appName}/><h1>{t('password.chooseOwn')}</h1><p>{t('password.forcedHint')}</p>{form}<button className="btn ghost" onClick={out}>{t('menu.signOut')}</button><Toast msg={msg}/></div>
+  return <><Bar title={t('nav.password')}/><div className="main">{form}</div></>}
 
-const Bar=({title,sub,back,right})=>{const {menu}=useContext(Ctx);return <header className="bar">
-  <button className="ic menu" aria-label="Open menu" onClick={menu}><Menu/></button>{back&&<button className="ic" aria-label="Back" onClick={back}><ChevronLeft/></button>}
+const Bar=({title,sub,back,right})=>{const {menu}=useContext(Ctx),{t}=useI18n();return <header className="bar">
+  <button className="ic menu" aria-label={t('menu.open')} onClick={menu}><Menu/></button>{back&&<button className="ic" aria-label={t('common.back')} onClick={back}><ChevronLeft/></button>}
   <h1>{title}{sub&&<small>{sub}</small>}</h1>{right}</header>}
 
 const ARCHIVE_WHAT={programs:'every semester or year, course, unit, topic and quiz in it',semesters:'every course, unit, topic and quiz in it',courses:'its units, topics and quizzes',units:'its topics and quizzes',topics:'this topic'}
