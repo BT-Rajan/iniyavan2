@@ -23,7 +23,10 @@ import '@fontsource/bricolage-grotesque/800.css'
 import '@fontsource/instrument-sans/400.css'
 import '@fontsource/instrument-sans/500.css'
 import '@fontsource/instrument-sans/600.css'
+import '@fontsource/noto-sans-arabic/400.css'
+import '@fontsource/noto-sans-arabic/600.css'
 import './styles.css'
+import {useI18n,LOCALES,DIRECTIONS} from './i18n/index.jsx'
 
 const api=async(p,o={})=>{const t=localStorage.t
   const r=await fetch('/api'+p,{...o,headers:{'Content-Type':'application/json',...(t&&{Authorization:'Bearer '+t})},body:o.body&&JSON.stringify(o.body)})
@@ -44,13 +47,14 @@ const useFaculty=on=>{const [l,setL]=useState([]);useEffect(()=>{if(on)api('/adm
 const pl=(n,w)=>`${n} ${w}${n===1?'':'s'}`
 const matches=n=>`${n} ${n===1?'match':'matches'}`
 const Ctx=createContext({})
-const THEMES=[['system',Monitor,'Auto'],['light',Sun,'Light'],['dark',Moon,'Dark']]
+const THEMES=[['system',Monitor,'theme.system'],['light',Sun,'theme.light'],['dark',Moon,'theme.dark']]
 const readTheme=()=>{try{return localStorage.theme||'system'}catch{return 'system'}}
 const applyTheme=t=>{const r=document.documentElement;if(t==='light'||t==='dark')r.dataset.theme=t;else delete r.dataset.theme;const dark=t==='dark'||(t!=='light'&&matchMedia('(prefers-color-scheme: dark)').matches);document.querySelector('meta[name=theme-color]')?.setAttribute('content',dark?'#0f1319':'#f4f5f8')}
 const Logo=({src,size=40})=>src?<img className="logo" src={src} alt="" width={size} height={size} style={{width:size,height:size}}/>:<span className="logomark" style={{width:size,height:size}} aria-hidden="true"><GraduationCap size={size*.55}/></span>
 const Lockup=({logo,name,size=40})=><div className="lockup"><Logo src={logo} size={size}/><b>{name}</b></div>
 
 export default function App(){
+  const {t,lang,setLang,dir,setDir}=useI18n()
   const [user,setUser]=useState(null),[ready,setReady]=useState(false),[pageSel,setPage]=useState(null),[msg,setMsg]=useState(''),[open,setOpen]=useState(false),[name,setName]=useState('Eng Tutor'),[canReset,setCanReset]=useState(false),[canReg,setCanReg]=useState(false),[resetTok,setResetTok]=useState(()=>(/^#reset=([\w-]+)$/.exec(location.hash)||[])[1]||null),[start,setStart]=useState(null),[logo,setLogo]=useState(null),[theme,setTheme]=useState(readTheme),[ask,setAsk]=useState(null)
   const confirm=useCallback(o=>new Promise(res=>setAsk({o,res})),[])  // in-app replacement for window.confirm: await confirm({title,body,ok,danger})
   const toast=useCallback(m=>{setMsg(m);setTimeout(()=>setMsg(''),2800)},[])
@@ -64,7 +68,7 @@ export default function App(){
   if(!user)return <Login onIn={setUser} toast={toast} msg={msg} appName={name} logo={logo} canReset={canReset} canReg={canReg}/>
   if(user.must_change)return <ChangePassword forced appName={name} logo={logo} toast={toast} msg={msg} done={()=>setUser({...user,must_change:false})} out={()=>{localStorage.removeItem('t');setUser(null)}}/>
   const student=user.role==='student',page=pageSel||'home',admin=user.role==='admin',go=k=>{setPage(k);setOpen(false)},openIn=nav=>{setStart(nav);go('learn')}
-  const links=[['home',Home,'Home'],['learn',GraduationCap,student?'My courses':'Courses'],['search',Search,'Search'],...(user.role==='student'?[['progress',TrendingUp,'My progress']]:[]),...(admin?[]:[['bookmarks',Bookmark,'Bookmarks']]),...(admin?[['users',UsersIcon,'Users'],['programs',GraduationCap,'Programs'],["ai",Sparkles,"Settings"],['reports',BarChart3,'Reports'],['activity',History,'Activity log']]:user.role==='faculty'?[['reports',BarChart3,'Reports']]:[]),...(user.self_registered?[['aikey',Sparkles,'My AI key']]:[]),['password',KeyRound,'Change password'],['about',Info,'About']]
+  const links=[['home',Home,'nav.home'],['learn',GraduationCap,student?'nav.myCourses':'nav.courses'],['search',Search,'nav.search'],...(user.role==='student'?[['progress',TrendingUp,'nav.progress']]:[]),...(admin?[]:[['bookmarks',Bookmark,'nav.bookmarks']]),...(admin?[['users',UsersIcon,'nav.users'],['programs',GraduationCap,'nav.programs'],["ai",Sparkles,"nav.settings"],['reports',BarChart3,'nav.reports'],['activity',History,'nav.activity']]:user.role==='faculty'?[['reports',BarChart3,'nav.reports']]:[]),...(user.self_registered?[['aikey',Sparkles,'nav.aiKey']]:[]),['password',KeyRound,'nav.password'],['about',Info,'nav.about']]
   return <Ctx.Provider value={{menu:()=>setOpen(true),appName:name,confirm}}>
     {page==='home'&&student&&<Dashboard user={user} toast={toast} onOpen={openIn} onSearch={()=>go('search')}/>}
     {page==='home'&&!student&&<StaffHome user={user} toast={toast} open={openIn}/>}
@@ -74,17 +78,20 @@ export default function App(){
     {page==='users'&&admin&&<Users toast={toast} me={user}/>}{page==='programs'&&admin&&<Programs toast={toast} onOpen={openIn}/>}
     {page==='ai'&&admin&&<AiConfig toast={toast} onBrand={()=>api('/config').then(c=>{setName(c.name);setLogo(c.logo||null);document.title=c.name})}/>}{page==='reports'&&(admin||user.role==='faculty')&&<Reports role={user.role} toast={toast}/>}{page==='activity'&&admin&&<Activity/>}{page==='aikey'&&user.self_registered&&<MyAiKey toast={toast}/>}{page==='password'&&<ChangePassword toast={toast} done={()=>go('learn')}/>}{page==='about'&&<About user={user}/>}
     <div className={'drawer'+(open?' open':'')}><div className="dscrim" onClick={()=>setOpen(false)}/>
-      <nav className="panel" aria-label="Main menu">
-        <div className="dhead"><Logo src={logo} size={36}/><div><b>{name}</b><small>{user.name}, {user.role}</small></div><button className="ic" aria-label="Close menu" onClick={()=>setOpen(false)}><X/></button></div>
-        {links.map(([k,I,l])=><button key={k} className={'dlink'+(page===k?' on':'')} onClick={()=>{if(k==='learn')setStart(null);go(k)}}><I size={20}/>{l}</button>)}
-        <div role="group" aria-label="Appearance" className="seg" style={{marginTop:"auto"}}>{THEMES.map(([k,I,l])=><button key={k} className={theme===k?"on":""} aria-pressed={theme===k} onClick={()=>pickTheme(k)}><I size={15}/>{l}</button>)}</div>
-        <button className="dlink" onClick={()=>{localStorage.removeItem('t');setOpen(false);setPage(null);setUser(null)}}><LogOut size={20}/>Sign out</button>
+      <nav className="panel" aria-label={t('menu.label')}>
+        <div className="dhead"><Logo src={logo} size={36}/><div><b>{name}</b><small>{user.name}, {user.role}</small></div><button className="ic" aria-label={t('menu.close')} onClick={()=>setOpen(false)}><X/></button></div>
+        {links.map(([k,I,l])=><button key={k} className={'dlink'+(page===k?' on':'')} onClick={()=>{if(k==='learn')setStart(null);go(k)}}><I size={20}/>{t(l)}</button>)}
+        <div role="group" aria-label={t('menu.appearance')} className="seg" style={{marginTop:"auto"}}>{THEMES.map(([k,I,l])=><button key={k} className={theme===k?"on":""} aria-pressed={theme===k} onClick={()=>pickTheme(k)}><I size={15}/>{t(l)}</button>)}</div>
+        <div role="group" aria-label={t('menu.language')} className="seg two">{Object.entries(LOCALES).map(([k,L])=><button key={k} className={lang===k?"on":""} aria-pressed={lang===k} onClick={()=>setLang(k)}>{L.name}</button>)}</div>
+        <div role="group" aria-label={t('menu.direction')} className="seg two">{DIRECTIONS.map(d=><button key={d} className={dir===d?"on":""} aria-pressed={dir===d} onClick={()=>setDir(d)}>{d.toUpperCase()}</button>)}</div>
+        <button className="dlink" onClick={()=>{localStorage.removeItem('t');setOpen(false);setPage(null);setUser(null)}}><LogOut size={20}/>{t('menu.signOut')}</button>
       </nav></div>
     <Toast msg={msg}/>
     {ask&&<Confirm o={ask.o} answer={ok=>{ask.res(ok);setAsk(null)}}/>}
   </Ctx.Provider>}
 
 function Login({onIn,toast,msg,appName,logo,canReset,canReg}){
+  const {t}=useI18n()
   const [f,setF]=useState({email:'',password:''}),[b,setB]=useState(false),[mode,setMode]=useState('in'),[sent,setSent]=useState('')
   const go=async()=>{setB(true);try{const r=await api('/login',{method:'POST',body:f});localStorage.t=r.token;onIn(r.user)}catch(e){toast(e.message)}setB(false)}
   const forgot=async()=>{setB(true);try{setSent((await api('/forgot',{method:'POST',body:{email:f.email}})).message)}catch(e){toast(e.message)}setB(false)}
@@ -93,11 +100,11 @@ function Login({onIn,toast,msg,appName,logo,canReset,canReg}){
     <label>Email</label><input type="email" autoComplete="email" value={f.email} onChange={e=>setF({...f,email:e.target.value})} onKeyDown={e=>e.key==='Enter'&&forgot()}/>
     <button className="btn" disabled={b||!f.email} onClick={forgot}>Send reset link</button></>}
     <button className="btn ghost" onClick={()=>{setMode('in');setSent('')}}>Back to sign in</button><Toast msg={msg}/></div>
-  return <div className="login"><Lockup logo={logo} name={appName}/><h1>Sign in</h1><p>Use the account your institution created for you.</p>
-    <label>Email</label><input type="email" autoComplete="email" value={f.email} onChange={e=>setF({...f,email:e.target.value})}/>
-    <label>Password</label><input type="password" autoComplete="current-password" value={f.password} onChange={e=>setF({...f,password:e.target.value})} onKeyDown={e=>e.key==='Enter'&&go()}/>
-    <button className="btn" disabled={b} onClick={go}>Sign in</button>
-    {canReset?<button className="btn ghost" onClick={()=>setMode('forgot')}>Forgot password?</button>:<p className="known">Forgot your password? Ask your admin to reset it.</p>}{canReg&&<button className="btn ghost" onClick={()=>setMode('register')}>Create an account</button>}<Toast msg={msg}/></div>}
+  return <div className="login"><Lockup logo={logo} name={appName}/><h1>{t('login.title')}</h1><p>{t('login.hint')}</p>
+    <label>{t('login.email')}</label><input type="email" autoComplete="email" value={f.email} onChange={e=>setF({...f,email:e.target.value})}/>
+    <label>{t('login.password')}</label><input type="password" autoComplete="current-password" value={f.password} onChange={e=>setF({...f,password:e.target.value})} onKeyDown={e=>e.key==='Enter'&&go()}/>
+    <button className="btn" disabled={b} onClick={go}>{t('login.submit')}</button>
+    {canReset?<button className="btn ghost" onClick={()=>setMode('forgot')}>{t('login.forgot')}</button>:<p className="known">{t('login.forgot')} {t('login.forgotHint')}</p>}{canReg&&<button className="btn ghost" onClick={()=>setMode('register')}>{t('login.register')}</button>}<Toast msg={msg}/></div>}
 
 function Register({onIn,toast,msg,appName,logo,back}){
   const [f,setF]=useState({name:'',institution:'',id_number:'',email:'',phone:'',password:''}),[stage,setStage]=useState('form'),[code,setCode]=useState(''),[b,setB]=useState(false),[wait,setWait]=useState(0),[info,setInfo]=useState(''),[st,setSt]=useState({domains:[]})
