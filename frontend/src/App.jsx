@@ -405,18 +405,18 @@ function SearchPage({user,toast}){const {t:tr}=useI18n();
       <button className="btn ghost" disabled={aiBusy} onClick={()=>askAi(ai.for,true)}><Sparkles size={16}/> {tr('search.unhappy')}</button></>}</div></>}
 function Hit({x,open}){const {t:tr}=useI18n();return <button className="hitrow" onClick={()=>open(x.id)}><b>{x.title}{x.in_title&&<span className="chip" style={{marginLeft:8}}>{tr('search.best')}</span>}</b><small>{[x.program,x.semester,x.course,x.unit].filter(Boolean).join(' › ')}</small>{x.snippet&&<span className="snip">{x.snippet}</span>}</button>}
 
-function Insights({toast,role}){
+function Insights({toast,role}){const {t:tr}=useI18n();
   const [d,setD]=useState(null),[topic,setTopic]=useState(null),[sc,setSc]=useState(null)
   useEffect(()=>{if(!topic)api('/me/insights').then(setD).catch(e=>toast(e.message))},[topic])
   if(topic)return <Topic id={topic} back={()=>setTopic(null)} toast={toast} role={role}/>
   if(sc)return <ScoreCourse c={sc} back={()=>setSc(null)} toast={toast} role={role}/>
   const n=d?d.needs_study.length:0
-  return <><Bar title="My progress" sub="Your scores, where you shine and what to revisit"/><div className="main">
-    <MyScores onCourse={setSc}/>{d?.courses.length>0&&<h3 className="sec">Strengths and weak areas</h3>}
+  return <><Bar title={tr('insights.title')} sub={tr('insights.sub')}/><div className="main">
+    <MyScores onCourse={setSc}/>{d?.courses.length>0&&<h3 className="sec">{tr('insights.strengths')}</h3>}
     {!d&&<Skeleton/>}
-    {d&&!d.courses.length&&<p className="known">Take a quiz and your strengths and weak spots will show up here.</p>}
-    {d?.courses.length>0&&<div className="qbox"><b>{n?`${n} ${n===1?'area needs':'areas need'} another round of study`:'Nothing needs another round of study right now'}</b><p className="known" style={{margin:'4px 0 0'}}>{d.strong.length} strong · {d.getting_there.length} getting there · based on your latest result in {d.quizzes_taken} {d.quizzes_taken===1?'quiz':'quizzes'}</p></div>}
-    {d?.courses.map(c=><section key={c.course_id}><h3 className="sec">{c.course} · {c.percent}% right</h3><AreaList areas={c.areas} onStudy={setTopic}/></section>)}</div></>}
+    {d&&!d.courses.length&&<p className="known">{tr('insights.takeQuiz')}</p>}
+    {d?.courses.length>0&&<div className="qbox"><b>{n?tr(n===1?'insights.areaOne':'insights.areaMany',{n}):tr('insights.none')}</b><p className="known" style={{margin:'4px 0 0'}}>{tr('insights.summary',{strong:d.strong.length,getting:d.getting_there.length,n:d.quizzes_taken,quizzes:tr(d.quizzes_taken===1?'insights.quizOne':'insights.quizMany')})}</p></div>}
+    {d?.courses.map(c=><section key={c.course_id}><h3 className="sec">{tr('insights.courseRight',{course:c.course,pct:c.percent})}</h3><AreaList areas={c.areas} onStudy={setTopic}/></section>)}</div></>}
 
 const uploadImg=async f=>{const r=await fetch('/api/uploads',{method:'POST',headers:{'Content-Type':f.type||'application/octet-stream',Authorization:'Bearer '+localStorage.t},body:f}),j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.detail||'Upload failed');return j.url}
 // one image place on a question or an answer: shows the image, the file the CSV asked for, or a small "Add image" button
@@ -743,27 +743,27 @@ function UnitSheet({un,cid,courses,close,done,toast}){const {t:tr}=useI18n();  /
 const unmarked=(tree,id)=>tree.map(p=>({...p,semesters:p.semesters.map(s=>({...s,courses:s.courses.map(c=>({...c,units:c.units.map(u=>({...u,topics:u.topics.map(x=>x.id===id?{...x,bookmarked:false}:x)}))}))}))}))
 const tabTo=e=>e.currentTarget.scrollIntoView?.({inline:'center',block:'nearest'})
 
-function Bookmarks({toast,role}){
+function Bookmarks({toast,role}){const {t:tr}=useI18n();
   const [tree,setTree]=useState(null),[sem,setSem]=useState(null),[course,setCourse]=useState(null),[t,setT]=useState(null)
   const load=()=>api('/tree').then(setTree).catch(e=>toast(e.message));useEffect(()=>{load()},[t])
   if(t)return <Topic id={t} back={()=>setT(null)} toast={toast} role={role}/>
-  if(!tree)return <><Bar title="Bookmarks"/><div className="main"><div className="sk"/><div className="sk"/></div></>
+  if(!tree)return <><Bar title={tr('bm.title')}/><div className="main"><div className="sk"/><div className="sk"/></div></>
   const marks=u=>u.topics.filter(x=>x.bookmarked),cnt=c=>c.units.reduce((n,u)=>n+marks(u).length,0)
   const sems=tree.flatMap(p=>p.semesters.map(sm=>({...sm,prog:p.name,courses:sm.courses.filter(c=>cnt(c)>0)}))).filter(sm=>sm.courses.length)
     .sort((a,b)=>a.prog.localeCompare(b.prog)||(a.number??99)-(b.number??99)||a.id-b.id)
   const multi=new Set(sems.map(x=>x.prog)).size>1,total=sems.reduce((n,x)=>n+x.courses.reduce((m,c)=>m+cnt(c),0),0)
   const sm=sems.find(x=>x.id===sem)||sems[0],co=sm?.courses.find(x=>x.id===course)||sm?.courses[0]
-  const drop=async id=>{try{await api(`/topics/${id}/bookmark`,{method:'DELETE'});setTree(unmarked(tree,id));toast('Bookmark removed')}catch(e){toast(e.message)}}
-  return <><Bar title="Bookmarks" sub={total?total+(total===1?' topic saved':' topics saved'):'Nothing saved yet'}/><div className="main">
-    {!sm&&<p className="known">Open any topic and tap the bookmark icon to save it here. It shows only the topics you saved, grouped by semester or year, course and unit.</p>}
+  const drop=async id=>{try{await api(`/topics/${id}/bookmark`,{method:'DELETE'});setTree(unmarked(tree,id));toast(tr('bm.removed'))}catch(e){toast(e.message)}}
+  return <><Bar title={tr('bm.title')} sub={total?tr(total===1?'bm.saved1':'bm.savedN',{n:total}):tr('bm.none')}/><div className="main">
+    {!sm&&<p className="known">{tr('bm.intro')}</p>}
     {sm&&<>
-      <div className="chips" role="group" aria-label="Semester or year">{sems.map(x=><button key={x.id} className={'sbtn'+(x.id===sm.id?' on':'')} aria-pressed={x.id===sm.id} onClick={e=>{setSem(x.id);setCourse(null);tabTo(e)}}>
+      <div className="chips" role="group" aria-label={tr('bm.semAria')}>{sems.map(x=><button key={x.id} className={'sbtn'+(x.id===sm.id?' on':'')} aria-pressed={x.id===sm.id} onClick={e=>{setSem(x.id);setCourse(null);tabTo(e)}}>
         <span className="lbl">{multi&&x.prog+' · '}{x.name}</span><em>{x.courses.reduce((n,c)=>n+cnt(c),0)}</em></button>)}</div>
-      <div className="tabs scroll" role="tablist" aria-label="Course">{sm.courses.map(c=><button key={c.id} role="tab" aria-selected={c.id===co.id} className={c.id===co.id?'on':''} onClick={e=>{setCourse(c.id);tabTo(e)}}>
+      <div className="tabs scroll" role="tablist" aria-label={tr('bm.courseAria')}>{sm.courses.map(c=><button key={c.id} role="tab" aria-selected={c.id===co.id} className={c.id===co.id?'on':''} onClick={e=>{setCourse(c.id);tabTo(e)}}>
         <span className="lbl">{c.name}</span><em>{cnt(c)}</em></button>)}</div>
       {co.units.filter(u=>marks(u).length).map(u=><div key={u.id}><h3 className="sec">{u.name}</h3>
         {marks(u).map((x,i)=><div key={x.id} className="card"><button className="hit" onClick={()=>setT(x.id)}><span className="dot" style={{background:COL[i%5]}}>{x.title[0]}</span><div><b>{x.title}</b></div><Mark s={x.status}/></button>
-          <button className="ic sm on" aria-label={'Remove bookmark: '+x.title} onClick={()=>drop(x.id)}><Bookmark size={16} fill="currentColor"/></button></div>)}</div>)}
+          <button className="ic sm on" aria-label={tr('bm.remove',{title:x.title})} onClick={()=>drop(x.id)}><Bookmark size={16} fill="currentColor"/></button></div>)}</div>)}
     </>}</div></>}
 
 const sheets=[]  // open sheets, topmost last, so Escape closes only the one on top
