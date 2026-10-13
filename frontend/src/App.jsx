@@ -310,7 +310,7 @@ function AreaList({areas,onStudy,staff}){
         {a.topic_id&&onStudy&&<button className="tool" onClick={()=>onStudy(a.topic_id)}>{k==='strong'?'Review':'Study again'}</button>}</div>)}</div>})}</>}
 const ATTN_GO={drafts:'drafts',empty_courses:'empty_courses',unowned:'unowned',unenrolled:'unenrolled',semester_numbers:'semester_numbers',never_opened:'never_opened'}
 const RS_PAGE=5
-function ResultSet({kind,user,back,toast,open}){  // the rows behind a dashboard card: search, sort, 5 per page, and a tap on a row opens its details
+function ResultSet({kind,user,back,toast,open}){const {t:tr}=useI18n();  // the rows behind a dashboard card: search, sort, 5 per page, and a tap on a row opens its details
   const [q,setQ]=useState(''),[order,setOrder]=useState('name'),[page,setPage]=useState(0),[d,setD]=useState(null),[view,setView]=useState(null),[progs,setProgs]=useState([])
   useEffect(()=>{setPage(0)},[q,order])
   useEffect(()=>{if(view)return;let live=true;const t=setTimeout(()=>api(`/overview/list?kind=${kind}&q=${encodeURIComponent(q)}&order=${order}&limit=${RS_PAGE}&offset=${page*RS_PAGE}`).then(r=>{if(!live)return;if(!r.items.length&&r.total&&page>0)setPage(Math.max(0,Math.ceil(r.total/RS_PAGE)-1));else setD(r)}).catch(e=>toast(e.message)),q?250:0);return()=>{live=false;clearTimeout(t)}},[kind,q,order,page,view])
@@ -321,40 +321,40 @@ function ResultSet({kind,user,back,toast,open}){  // the rows behind a dashboard
     if(t.type==='topic')return <Topic id={t.id} back={shut} toast={toast} role={user.role}/>
     if(t.type==='course'&&kind==='courses'){const [p='',sm='']=(view.sub||'').split(' · ');return <StudentReport c={{course_id:t.id,course:view.title,program:p,semester:sm}} back={shut} toast={toast}/>}
     open(t.type==='program'?[t.id]:[t.program_id,t.semester_id,t.id].filter(x=>x!=null));return null}
-  const total=d?.total??0,pages=Math.max(1,Math.ceil(total/RS_PAGE)),title=d?.title||'Loading'
-  return <><Bar title={title} sub={d?(total+(q?' match'+(total===1?'':'es'):' in total')):''} back={back}/><div className="main">
-    <div className="search"><Search size={18}/><input type="search" aria-label={'Search '+title.toLowerCase()} placeholder="Search" value={q} onChange={e=>setQ(e.target.value)}/></div>
-    <div className="qopt"><select aria-label="Sort by" value={order} onChange={e=>setOrder(e.target.value)}><option value="name">Sort: A to Z</option><option value="name_desc">Sort: Z to A</option><option value="detail">Sort: by details</option><option value="newest">Sort: newest first</option>{d?.can_recent&&<option value="recent">Sort: last active</option>}</select></div>
+  const total=d?.total??0,pages=Math.max(1,Math.ceil(total/RS_PAGE)),title=d?.title||tr('common.loading')
+  return <><Bar title={title} sub={d?(q?tr(total===1?'rs.matchOne':'rs.matchMany',{n:total}):tr('rs.inTotal',{n:total})):''} back={back}/><div className="main">
+    <div className="search"><Search size={18}/><input type="search" aria-label={tr('rs.searchAria',{title:title.toLowerCase()})} placeholder={tr('common.search')} value={q} onChange={e=>setQ(e.target.value)}/></div>
+    <div className="qopt"><select aria-label={tr('rs.sortBy')} value={order} onChange={e=>setOrder(e.target.value)}><option value="name">{tr('rs.sortName')}</option><option value="name_desc">{tr('rs.sortNameDesc')}</option><option value="detail">{tr('rs.sortDetail')}</option><option value="newest">{tr('rs.sortNewest')}</option>{d?.can_recent&&<option value="recent">{tr('rs.sortRecent')}</option>}</select></div>
     {!d&&<><div className="sk"/><div className="sk"/><div className="sk"/></>}
-    {d&&d.items.length>0&&<div className="uhead" aria-hidden="true"><span>Name</span><span>Details</span><span/></div>}
-    {d?.items.map(x=><button key={x.id} className="utr" onClick={()=>setView(x)} aria-label={'Open '+x.title}>
+    {d&&d.items.length>0&&<div className="uhead" aria-hidden="true"><span>{tr('rs.name')}</span><span>{tr('rs.details')}</span><span/></div>}
+    {d?.items.map(x=><button key={x.id} className="utr" onClick={()=>setView(x)} aria-label={tr('rs.open',{title:x.title})}>
       <span className="nm"><span className="dot" style={{background:COL[x.id%5]}}>{(x.title||'?')[0]}</span><span className="tx"><b>{x.title}</b><small className="sub">{x.sub}</small></span></span>
       <span className="pg">{x.detail||'—'}</span><span className="sn"><ChevronRight size={16}/></span></button>)}
-    {d&&!d.items.length&&<p className="known">{q?'Nothing matches that search.':'Nothing here. All clear.'}</p>}
-    {d&&total>RS_PAGE&&<nav className="pager" aria-label="Pages"><button className="btn ghost" disabled={page===0} onClick={()=>setPage(page-1)}><ChevronLeft size={18}/><span>Previous</span></button><small>Page {page+1} of {pages}</small><button className="btn ghost" disabled={page+1>=pages} onClick={()=>setPage(page+1)}><span>Next</span><ChevronRight size={18}/></button></nav>}
+    {d&&!d.items.length&&<p className="known">{q?tr('rs.noMatch'):tr('rs.empty')}</p>}
+    {d&&total>RS_PAGE&&<nav className="pager" aria-label={tr('rs.pages')}><button className="btn ghost" disabled={page===0} onClick={()=>setPage(page-1)}><ChevronLeft size={18}/><span>{tr('rs.previous')}</span></button><small>{tr('rs.page',{p:page+1,n:pages})}</small><button className="btn ghost" disabled={page+1>=pages} onClick={()=>setPage(page+1)}><span>{tr('home.next')}</span><ChevronRight size={18}/></button></nav>}
   </div></>}
-function StaffHome({user,toast,open}){
+function StaffHome({user,toast,open}){const {t:tr}=useI18n();
   const [o,setO]=useState(null),[list,setList]=useState(null),[rep,setRep]=useState(null)
   useEffect(()=>{if(!list&&!rep)api('/overview').then(setO).catch(e=>toast(e.message))},[toast,list,rep])
   if(rep)return <StudentReport c={rep} back={()=>setRep(null)} toast={toast}/>
   if(list)return <ResultSet kind={list} user={user} back={()=>setList(null)} toast={toast} open={open}/>
-  const admin=user.role==='admin',hour=new Date().getHours(),hi=hour<12?'Good morning':hour<17?'Good afternoon':'Good evening'
-  const stats=o?(admin?[[o.people.students,'Active students','students'],[o.people.active_week,'Studied this week','active_week'],[o.people.faculty,'Faculty','faculty'],[o.courses,'Courses','courses']]:[[o.courses,'Your courses','courses'],[o.topics,'Topics','topics'],[o.drafts,'Drafts','drafts']]):[]
-  return <><Bar title={`${hi}, ${user.name.split(' ')[0]}`} sub={admin?'Across the whole college':'Your courses'}/><div className="main">
+  const admin=user.role==='admin',hour=new Date().getHours(),hi=hour<12?tr('home.morning'):hour<17?tr('home.afternoon'):tr('home.evening')
+  const stats=o?(admin?[[o.people.students,tr('home.activeStudents'),'students'],[o.people.active_week,tr('home.studiedWeek'),'active_week'],[o.people.faculty,tr('home.faculty'),'faculty'],[o.courses,tr('home.courses'),'courses']]:[[o.courses,tr('home.yourCourses'),'courses'],[o.topics,tr('home.topics'),'topics'],[o.drafts,tr('home.drafts'),'drafts']]):[]
+  return <><Bar title={tr('home.greeting',{hi,name:user.name.split(' ')[0]})} sub={admin?tr('home.acrossCollege'):tr('home.yourCourses')}/><div className="main">
     {!o&&<><div className="sk"/><div className="sk"/><div className="sk"/></>}
-    {o&&<div className="stats">{stats.map(([n,l,k])=><button className="stat" key={l} style={{textAlign:'left',width:'100%'}} onClick={()=>setList(k)} aria-label={`${(n??0).toLocaleString()} ${l}. Show the list`}><b>{(n??0).toLocaleString()}</b>{l}</button>)}</div>}
-    {o&&<><h3 className="sec">Needs attention</h3>
+    {o&&<div className="stats">{stats.map(([n,l,k])=><button className="stat" key={l} style={{textAlign:'left',width:'100%'}} onClick={()=>setList(k)} aria-label={tr('home.showListAria',{n:(n??0).toLocaleString(),l})}><b>{(n??0).toLocaleString()}</b>{l}</button>)}</div>}
+    {o&&<><h3 className="sec">{tr('home.attention')}</h3>
       {o.attention.length?o.attention.map(x=><button key={x.kind} className="card" style={{textAlign:'left'}} onClick={()=>setList(ATTN_GO[x.kind]||'drafts')}><div style={{flex:1}}><b>{x.text}</b></div><ChevronRight size={18}/></button>)
-        :<p className="known">Nothing needs your attention right now.</p>}</>}
-    {o&&!o.courses&&!admin&&<p className="known">No course is assigned to you yet. An admin makes you the owner of a course.</p>}
-    {o?.courses>0&&<><h3 className="sec">{admin?'Courses':'Your courses'}</h3><CourseReports toast={toast} onOpen={setRep}/></>}
+        :<p className="known">{tr('home.nothingAttention')}</p>}</>}
+    {o&&!o.courses&&!admin&&<p className="known">{tr('home.notAssigned')}</p>}
+    {o?.courses>0&&<><h3 className="sec">{admin?tr('home.courses'):tr('home.yourCourses')}</h3><CourseReports toast={toast} onOpen={setRep}/></>}
   </div></>}
-const FOCUS={overdue:[AlertTriangle,'Overdue','Open it'],due_soon:[Clock,'Due soon','Open it'],weak:[Target,'Needs review','Review'],resume:[Play,'Continue','Continue'],quiz_retake:[RotateCcw,'Retake the quiz','Retake'],quiz_new:[ClipboardList,'Quiz','Take the quiz'],next:[ArrowRight,'Next up','Start']}
-function Dashboard({user,toast,onOpen,onSearch}){
+const FOCUS={overdue:[AlertTriangle,'focus.overdue','focus.openIt'],due_soon:[Clock,'focus.dueSoon','focus.openIt'],weak:[Target,'focus.needsReview','focus.review'],resume:[Play,'focus.continue','focus.continue'],quiz_retake:[RotateCcw,'focus.retakeQuiz','focus.retake'],quiz_new:[ClipboardList,'focus.quiz','focus.takeQuiz'],next:[ArrowRight,'focus.nextUp','focus.start']}
+function Dashboard({user,toast,onOpen,onSearch}){const {t:tr}=useI18n();
   const [tree,setTree]=useState(null),[ins,setIns]=useState(null),[today,setToday]=useState(null),[planErr,setPlanErr]=useState(''),[topic,setTopic]=useState(null)
   useEffect(()=>{if(topic)return;api('/tree').then(setTree).catch(e=>toast(e.message));api('/me/insights').then(setIns).catch(()=>{});api('/me/today').then(r=>{setToday(r);setPlanErr('')}).catch(e=>setPlanErr(e.message))},[topic,toast])
   if(topic)return <Topic id={topic} back={()=>setTopic(null)} toast={toast} role={user.role}/>
-  const hour=new Date().getHours(),hi=hour<12?'Good morning':hour<17?'Good afternoon':'Good evening'
+  const hour=new Date().getHours(),hi=hour<12?tr('home.morning'):hour<17?tr('home.afternoon'):tr('home.evening')
   const seen=new Map(),courses=[]
   for(const p of tree||[])for(const s of p.semesters)for(const c of s.courses){const at=seen.get(c.id),item={p,s,c,topics:c.units.flatMap(un=>un.topics.map(t=>({...t,unit:un})))}
     if(at===undefined){seen.set(c.id,courses.length);courses.push(item)}else if(courses[at].c.archived&&!c.archived)courses[at]=item}  // a course shown twice counts once, and a live place wins over an archived one
@@ -362,28 +362,28 @@ function Dashboard({user,toast,onOpen,onSearch}){
   const due=all.filter(t=>t.learning_due_at&&t.status!=='completed').sort((a,b)=>a.learning_due_at.localeCompare(b.learning_due_at)).slice(0,5)
   const need=ins?.needs_study.slice(0,3)||[],focus=today?.focus||[],top=focus[0]
   const act=f=>f.topic_id?setTopic(f.topic_id):onOpen(f.nav)
-  const sub=!today?'Here is where you are today':today.streak>1?`${today.streak}-day study streak. Keep it going`:today.active_today?'You have studied today. Nice start':focus.length?'Here is what to do next':'Here is where you are today'
-  return <><Bar title={`${hi}, ${user.name.split(' ')[0]}`} sub={sub}/><div className="main">
-    <button className="search fake" onClick={onSearch} aria-label="Search topics"><Search size={18}/><span>Search any topic</span></button>
+  const sub=!today?tr('home.whereToday'):today.streak>1?tr('home.streak',{n:today.streak}):today.active_today?tr('home.studiedToday'):focus.length?tr('home.nextToDo'):tr('home.whereToday')
+  return <><Bar title={tr('home.greeting',{hi,name:user.name.split(' ')[0]})} sub={sub}/><div className="main">
+    <button className="search fake" onClick={onSearch} aria-label={tr('home.searchAria')}><Search size={18}/><span>{tr('home.searchTopic')}</span></button>
     {!tree&&<><div className="sk"/><div className="sk"/><div className="sk"/></>}
-    {tree&&!courses.length&&<p className="known">{user.self_registered&&!user.placed?'Your account is ready. An admin will place you in your program and semester or year, and your courses will appear here.':'You are not enrolled in a course yet. Ask your admin to add you to one.'}</p>}
-    {planErr&&courses.length>0&&<p className="known" role="alert">Today's plan could not load ({planErr}). Your courses are below. If this keeps happening, tell your admin.</p>}
+    {tree&&!courses.length&&<p className="known">{user.self_registered&&!user.placed?tr('home.placing'):tr('home.notEnrolled')}</p>}
+    {planErr&&courses.length>0&&<p className="known" role="alert">{tr('home.planErr',{err:planErr})}</p>}
     {today&&courses.length>0&&<><div className="stats dstats">
-      <div className="stat"><b><Flame size={20} className={'flame'+(today.streak?' on':'')} aria-hidden="true"/> {today.streak}</b>Day streak<small>{today.active_today?'Studied today':today.streak?'Study today to keep it':'Start one today'}</small></div>
-      <div className="stat"><b>{today.completed_this_week}</b>Done this week<small>{pl(today.active_days_week,'active day')}</small></div>
-      <div className="stat"><b>{today.percent}%</b>Completed<small>{today.topics_completed} of {today.topics_total} topics</small></div>
-      <div className="stat"><b>{today.quiz_average==null?'–':today.quiz_average+'%'}</b>Quiz average<small>{today.quiz_average==null?'No quizzes yet':'best scores'}</small></div></div>
-      <div className="week" role="img" aria-label={`Studied on ${today.week.filter(d=>d.active).length} of the last 7 days`}>{today.week.map(d=><span key={d.date} className={'wd'+(d.active?' on':'')+(d.today?' now':'')}><i>{d.active&&<Check size={13}/>}</i><small>{d.label}</small></span>)}</div></>}
-    {top&&<><h3 className="sec first">Today's focus</h3>
-      <div className="hero"><small>{top.kind==='overdue'||top.kind==='due_soon'?top.reason:FOCUS[top.kind][1]+' · '+top.reason}</small><h2 style={{fontSize:24}}>{top.title}</h2><p>{top.course} · {top.unit}</p>
-        <button className="btn inv" style={{marginTop:14}} onClick={()=>act(top)}>{FOCUS[top.kind][2]}</button></div>
-      {focus.slice(1).map((f,i)=>{const [I,,go]=FOCUS[f.kind];return <button key={i} className="frow" onClick={()=>act(f)}><span className={'fic '+f.kind}><I size={18}/></span><span className="ftx"><b>{f.title}</b><small>{f.reason} · {f.course}</small></span><span className="fgo">{go}</span></button>})}</>}
-    {today&&courses.length>0&&!focus.length&&<div className="qbox" style={{marginTop:6}}><b>You are all caught up</b><p className="known" style={{margin:'6px 0 0'}}>Nothing is overdue or waiting. Search a topic you want to revisit, or try a quiz to test yourself.</p></div>}
-    {courses.length>0&&<><h3 className="sec">My courses</h3>{courses.map(({p,s,c,topics},i)=>{const done=topics.filter(t=>t.status==='completed').length,pc=topics.length?Math.round(100*done/topics.length):0,late=topics.filter(t=>t.overdue).length,next=topics.find(t=>t.status==='in_progress')||topics.find(t=>t.status==='not_started')
-      if(c.archived)return <div key={c.id} className="card" style={{opacity:.7}}><button className="hit" onClick={()=>toast('This course is unavailable right now')} aria-label={c.name+', unavailable right now'}><span className="dot" style={{background:'var(--mut)'}}><Lock size={18}/></span><div><b>{c.name}</b><span>Unavailable right now</span></div></button></div>
-      return <div key={c.id} className="card" style={{display:'block'}}><button className="hit" style={{width:'100%'}} onClick={()=>onOpen([p.id,s.id,c.id])}><span className="dot" style={{background:COL[i%5]}}>{c.name[0]}</span><div style={{flex:1}}><b>{c.name}{late>0&&<span className="pill off sm">{late} overdue</span>}</b><span>{done} of {topics.length} topics completed · {pc}%</span><Bar2 v={pc}/>{next&&<span className="nexts">{next.status==='in_progress'?'Continue':'Next'}: {next.title}</span>}</div></button></div>})}</>}
-    {due.length>0&&<><h3 className="sec">Coming up</h3>{due.map(t=><button key={t.id} className="row rowbtn" onClick={()=>setTopic(t.id)}><div>{t.title}<small>{t.x.c.name} · due {when(t.learning_due_at)}</small></div>{t.overdue&&<span className="pill off sm">Overdue</span>}<ChevronRight size={18}/></button>)}</>}
-    {need.length>0&&<><h3 className="sec">Worth another round of study</h3><AreaList areas={need} onStudy={setTopic}/></>}
+      <div className="stat"><b><Flame size={20} className={'flame'+(today.streak?' on':'')} aria-hidden="true"/> {today.streak}</b>{tr('home.dayStreak')}<small>{today.active_today?tr('home.studiedToday'):today.streak?tr('home.studyToKeep'):tr('home.startToday')}</small></div>
+      <div className="stat"><b>{today.completed_this_week}</b>{tr('home.doneWeek')}<small>{tr(today.active_days_week===1?'home.activeDayOne':'home.activeDayMany',{n:today.active_days_week})}</small></div>
+      <div className="stat"><b>{today.percent}%</b>{tr('home.completed')}<small>{tr('home.topicsOf',{a:today.topics_completed,b:today.topics_total})}</small></div>
+      <div className="stat"><b>{today.quiz_average==null?'–':today.quiz_average+'%'}</b>{tr('home.quizAvg')}<small>{today.quiz_average==null?tr('home.noQuizzes'):tr('home.bestScores')}</small></div></div>
+      <div className="week" role="img" aria-label={tr('home.weekAria',{n:today.week.filter(d=>d.active).length})}>{today.week.map(d=><span key={d.date} className={'wd'+(d.active?' on':'')+(d.today?' now':'')}><i>{d.active&&<Check size={13}/>}</i><small>{d.label}</small></span>)}</div></>}
+    {top&&<><h3 className="sec first">{tr('home.focus')}</h3>
+      <div className="hero"><small>{top.kind==='overdue'||top.kind==='due_soon'?top.reason:tr(FOCUS[top.kind][1])+' · '+top.reason}</small><h2 style={{fontSize:24}}>{top.title}</h2><p>{top.course} · {top.unit}</p>
+        <button className="btn inv" style={{marginTop:14}} onClick={()=>act(top)}>{tr(FOCUS[top.kind][2])}</button></div>
+      {focus.slice(1).map((f,i)=>{const [I,,go]=FOCUS[f.kind];return <button key={i} className="frow" onClick={()=>act(f)}><span className={'fic '+f.kind}><I size={18}/></span><span className="ftx"><b>{f.title}</b><small>{f.reason} · {f.course}</small></span><span className="fgo">{tr(go)}</span></button>})}</>}
+    {today&&courses.length>0&&!focus.length&&<div className="qbox" style={{marginTop:6}}><b>{tr('home.caughtUp')}</b><p className="known" style={{margin:'6px 0 0'}}>{tr('home.caughtUpHint')}</p></div>}
+    {courses.length>0&&<><h3 className="sec">{tr('home.myCourses')}</h3>{courses.map(({p,s,c,topics},i)=>{const done=topics.filter(t=>t.status==='completed').length,pc=topics.length?Math.round(100*done/topics.length):0,late=topics.filter(t=>t.overdue).length,next=topics.find(t=>t.status==='in_progress')||topics.find(t=>t.status==='not_started')
+      if(c.archived)return <div key={c.id} className="card" style={{opacity:.7}}><button className="hit" onClick={()=>toast(tr('home.unavailableToast'))} aria-label={c.name+', '+tr('home.unavailable')}><span className="dot" style={{background:'var(--mut)'}}><Lock size={18}/></span><div><b>{c.name}</b><span>{tr('home.unavailable')}</span></div></button></div>
+      return <div key={c.id} className="card" style={{display:'block'}}><button className="hit" style={{width:'100%'}} onClick={()=>onOpen([p.id,s.id,c.id])}><span className="dot" style={{background:COL[i%5]}}>{c.name[0]}</span><div style={{flex:1}}><b>{c.name}{late>0&&<span className="pill off sm">{tr('home.overdueN',{n:late})}</span>}</b><span>{tr('home.courseProgress',{done,total:topics.length,pc})}</span><Bar2 v={pc}/>{next&&<span className="nexts">{tr(next.status==='in_progress'?'home.continue':'home.next')}: {next.title}</span>}</div></button></div>})}</>}
+    {due.length>0&&<><h3 className="sec">{tr('home.comingUp')}</h3>{due.map(t=><button key={t.id} className="row rowbtn" onClick={()=>setTopic(t.id)}><div>{t.title}<small>{tr('home.dueOn',{course:t.x.c.name,when:when(t.learning_due_at)})}</small></div>{t.overdue&&<span className="pill off sm">{tr('home.overdue')}</span>}<ChevronRight size={18}/></button>)}</>}
+    {need.length>0&&<><h3 className="sec">{tr('home.worthRound')}</h3><AreaList areas={need} onStudy={setTopic}/></>}
   </div></>}
 function SearchPage({user,toast}){
   const [q,setQ]=useState(''),[live,setLive]=useState(null),[asked,setAsked]=useState(''),[ai,setAi]=useState(null),[aiBusy,setAiBusy]=useState(false),[aiErr,setAiErr]=useState(''),[topic,setTopic]=useState(null),[pend,setPend]=useState(false)
