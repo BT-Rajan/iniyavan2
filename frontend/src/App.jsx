@@ -780,7 +780,7 @@ const Confirm=({o,answer})=>{const {t:tr}=useI18n();return <Sheet close={()=>ans
 const useConfirm=()=>useContext(Ctx).confirm
 const Toast=({msg})=>msg?<div className="toast" role="status">{msg}</div>:null
 const Skeleton=({rows=3})=><div aria-busy="true" aria-label="Loading">{Array.from({length:rows},(_,i)=><div className="sk" key={i}/>)}</div>
-const ShowMore=({left,onClick,busy})=><button className="btn ghost" disabled={busy} onClick={onClick}>Show more ({left} left)</button>
+const ShowMore=({left,onClick,busy})=>{const {t:tr}=useI18n();return <button className="btn ghost" disabled={busy} onClick={onClick}>{tr('common.showMore',{n:left})}</button>}
 const Tabs=({items,value,onChange,scroll,label})=><div className={'tabs'+(scroll?' scroll':'')} role="tablist" aria-label={label}>{items.map(([k,l])=><button key={k} role="tab" aria-selected={value===k} className={value===k?'on':''} onClick={()=>onChange(k)}>{l}</button>)}</div>
 const useRun=(toast,load)=>async(fn,m)=>{try{await fn();toast(m);load&&load()}catch(e){toast(e.message)}}
 
@@ -791,9 +791,9 @@ Ravi S,ravi@example.com,Welcome#2026,student,B.E. Mechanical Engineering,1
 `
 const TERM_MAX={Grade:12},maxOf=term=>TERM_MAX[term]||8,upTo=n=>Array.from({length:n},(_,i)=>i+1)
 const termOf=(progs,id)=>progs.find(p=>String(p.id)===String(id))?.term||'Semester',semsOf=(progs,id)=>upTo(id?maxOf(termOf(progs,id)):Math.max(8,...progs.map(p=>maxOf(p.term))))
-const PATTERN={semester:['Semesters','Semester',8,'Semester pattern, for example B.E., B.Tech or M.E. Students move up one semester at a time.'],
-  year:['Years','Year',4,'Annual pattern, for example M.B.B.S, B.Sc or law degrees, up to 8 years. For a school, choose School grades. Students move up one year at a time.'],
-  grade:['School grades','Grade',12,'School pattern, Grade 1 to Grade 12. Students move up one grade at a time.']}
+const PATTERN={semester:['Semesters','Semester',8,'pattern.semester'],
+  year:['Years','Year',4,'pattern.year'],
+  grade:['School grades','Grade',12,'pattern.grade']}
 
 const BULK_TEXT={disable:['Disable these accounts?','They can no longer sign in. Their progress and quiz results are kept, and you can enable them again.','Disable'],
   enable:['Enable these accounts?','They can sign in again.','Enable'],reset_passwords:['Reset these passwords?','Each person gets a new one-time password and must choose their own at next sign-in. Anyone signed in is signed out. You download the list once; it is not shown again.','Reset passwords']}
@@ -813,7 +813,7 @@ function BulkSheet({act,ids,progs,toast,close,done}){const {t:tr}=useI18n();
   const [t,d,l]=BULK_TEXT[act.kind]
   return <Sheet close={close}><h3>{t.replace('these',ids.length===1?'this':'these')}</h3><p className="known">{pl(ids.length,'account')} selected. {d}</p>
     <button className={'btn'+(act.kind==='disable'?' danger':'')} disabled={busy} onClick={run}>{busy?'Working…':l}</button><button className="btn ghost" onClick={close}>Cancel</button></Sheet>}
-function Users({toast,me}){
+function Users({toast,me}){const {t:tr}=useI18n();
   const [items,setItems]=useState([]),[total,setTotal]=useState(0),[q,setQ]=useState(''),[prog,setProg]=useState(''),[sem,setSem]=useState(''),[order,setOrder]=useState('role'),[progs,setProgs]=useState([])
   const [view,setView]=useState(null),[ed,setEd]=useState(null),[bulk,setBulk]=useState(null),fileRef=useRef(),[selMode,setSelMode]=useState(false),[sel,setSel]=useState([]),[act,setAct]=useState(null)
   const url=offset=>`/admin/users?q=${encodeURIComponent(q)}&order=${order}&limit=50&offset=${offset}`+(prog?'&program_id='+prog:'')+(sem?'&semester='+sem:'')
@@ -850,11 +850,11 @@ function Users({toast,me}){
       {bulk.stage==='pick'&&<><h3>Bulk upload users</h3><p className="known">One row per person with the columns name, email, password, role, program and semester (the year number for annual programs such as M.B.B.S). Leave the password blank to generate one. Role is student or admin and defaults to student. Program must match a name on the Programs tab, and semester is a number from 1 to 8. Emails that already exist are updated, and blank program or semester cells leave the current value alone.</p>
         <button className="btn ghost" onClick={()=>download('users-template.csv',USER_TEMPLATE)}>Download template</button><button className="btn" onClick={()=>fileRef.current.click()}>Choose CSV file</button></>}
       {bulk.stage==='preview'&&<><h3>Ready to upload</h3><p className="known">{r.valid_rows} of {r.rows} rows are valid: {r.created} new, {r.updated} updated.{r.generated>0&&` ${r.generated} passwords will be generated.`}</p>
-        {r.error_count>0&&<div className="prose" style={{maxHeight:'28vh',overflow:'auto',fontSize:14}}><b>{r.error_count} rows will be skipped</b>{r.errors.map(e=><div key={e.row}>Row {e.row}: {e.error}</div>)}</div>}
-        <button className="btn" disabled={!r.valid_rows} onClick={commit}>Upload {r.valid_rows} rows</button><button className="btn ghost" onClick={()=>setBulk(null)}>Cancel</button></>}
+        {r.error_count>0&&<div className="prose" style={{maxHeight:'28vh',overflow:'auto',fontSize:14}}><b>{tr('prog.skipped',{n:r.error_count})}</b>{r.errors.map(e=><div key={e.row}>{tr('prog.rowErr',{row:e.row,error:e.error})}</div>)}</div>}
+        <button className="btn" disabled={!r.valid_rows} onClick={commit}>{tr('prog.uploadRows',{n:r.valid_rows})}</button><button className="btn ghost" onClick={()=>setBulk(null)}>{tr('common.cancel')}</button></>}
       {bulk.stage==='done'&&<><h3>Upload complete</h3><p className="known">{r.created} users created, {r.updated} updated.{r.credentials.length>0&&' Download the generated passwords now. They are not shown again.'}</p>
         {r.credentials.length>0&&<button className="btn" onClick={()=>download('new-user-passwords.csv','name,email,password\n'+r.credentials.map(c=>[c.name,c.email,c.password].map(cell).join(',')).join('\n')+'\n')}>Download passwords</button>}
-        <button className="btn ghost" onClick={()=>setBulk(null)}>Close</button></>}
+        <button className="btn ghost" onClick={()=>setBulk(null)}>{tr('common.close')}</button></>}
     </Sheet>}</>}
 
 function UserDetail({id,me,progs,back,toast}){
@@ -901,7 +901,7 @@ function UserSheet({u,me,progs,close,done,toast}){
     {self&&<p className="known">You can't change your own role or status.</p>}
     <button className="btn" disabled={busy} onClick={save}>{isNew?'Add user':'Save changes'}</button></Sheet>}
 
-function Programs({toast,onOpen}){
+function Programs({toast,onOpen}){const {t:tr}=useI18n();
   const [items,setItems]=useState([]),[total,setTotal]=useState(0),[q,setQ]=useState(''),[order,setOrder]=useState('name'),[status,setStatus]=useState('active')
   const [view,setView]=useState(null),[ed,setEd]=useState(null),[bulk,setBulk]=useState(null),fileRef=useRef()
   const url=offset=>`/admin/programs?q=${encodeURIComponent(q)}&order=${order}&status=${status}&limit=50&offset=${offset}`
@@ -910,90 +910,90 @@ function Programs({toast,onOpen}){
   const more=()=>api(url(items.length)).then(r=>{setItems([...items,...r.items]);setTotal(r.total)}).catch(e=>toast(e.message))
   const pick=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;try{const text=await f.text();setBulk({stage:'preview',text,res:await api('/admin/import',{method:'POST',body:{csv:text,dry_run:true}})})}catch(err){toast(err.message)}}
   const commit=async()=>{try{setBulk({...bulk,stage:'done',res:await api('/admin/import',{method:'POST',body:{csv:bulk.text,dry_run:false}})});load()}catch(e){toast(e.message)}}
-  const r=bulk?.res,made=r&&Object.entries(r.created).filter(([,v])=>v).map(([k,v])=>v+' '+k).join(', ')||'nothing new'
+  const r=bulk?.res,made=r&&Object.entries(r.created).filter(([,v])=>v).map(([k,v])=>v+' '+k).join(', ')||tr('prog.nothingNew')
   if(view)return <ProgramDetail id={view} onOpen={onOpen} toast={toast} back={()=>{setView(null);load()}}/>
-  return <><Bar title="Programs" sub={q?matches(total):pl(total,'program')}/><div className="main">
-    <div className="search"><Search size={18}/><input type="search" aria-label="Search programs" placeholder="Search program, semester, year or course" value={q} onChange={e=>setQ(e.target.value)}/></div>
-    <div className="filters"><select aria-label="Sort by" value={order} onChange={e=>setOrder(e.target.value)}><option value="name">Sort: name</option><option value="students">Sort: most students</option><option value="newest">Sort: newest first</option></select><select aria-label="Show" value={status} onChange={e=>setStatus(e.target.value)}><option value="active">Active programs</option><option value="archived">Archived programs</option><option value="all">All programs</option></select></div>
-    <div className="two"><button className="btn" onClick={()=>setEd({})}>New program</button><button className="btn ghost" onClick={()=>setBulk({stage:'pick'})}>Bulk upload</button></div>
+  return <><Bar title={tr('nav.programs')} sub={q?tr(total===1?'rs.matchOne':'rs.matchMany',{n:total}):tr(total===1?'prog.oneProgram':'prog.manyPrograms',{n:total})}/><div className="main">
+    <div className="search"><Search size={18}/><input type="search" aria-label={tr('prog.search')} placeholder={tr('prog.searchPh')} value={q} onChange={e=>setQ(e.target.value)}/></div>
+    <div className="filters"><select aria-label={tr('rs.sortBy')} value={order} onChange={e=>setOrder(e.target.value)}><option value="name">{tr('prog.sortName')}</option><option value="students">{tr('prog.sortStudents')}</option><option value="newest">{tr('rs.sortNewest')}</option></select><select aria-label={tr('prog.show')} value={status} onChange={e=>setStatus(e.target.value)}><option value="active">{tr('prog.active')}</option><option value="archived">{tr('prog.archived')}</option><option value="all">{tr('prog.all')}</option></select></div>
+    <div className="two"><button className="btn" onClick={()=>setEd({})}>{tr('learn.newProgram')}</button><button className="btn ghost" onClick={()=>setBulk({stage:'pick'})}>{tr('prog.bulk')}</button></div>
     <div style={{height:14}}/>
-    {items.length>0&&<div className="uhead p" aria-hidden="true"><span>Program</span><span>Courses</span><span>Students</span></div>}
-    {items.map(x=><button key={x.id} className="utr p" onClick={()=>setView(x.id)} aria-label={'Open '+x.name}>
-      <span className="nm"><span className="dot" style={{background:COL[x.id%5]}}>{(x.name||'?')[0]}</span><span className="tx"><b>{x.name}{x.archived&&<span className="pill off sm">Archived</span>}</b><small className="sub">{pl(x.semesters,x.term.toLowerCase())}, {x.topics} topics</small></span></span>
+    {items.length>0&&<div className="uhead p" aria-hidden="true"><span>{tr('prog.program')}</span><span>{tr('home.courses')}</span><span>{tr('prog.students')}</span></div>}
+    {items.map(x=><button key={x.id} className="utr p" onClick={()=>setView(x.id)} aria-label={tr('rs.open',{title:x.name})}>
+      <span className="nm"><span className="dot" style={{background:COL[x.id%5]}}>{(x.name||'?')[0]}</span><span className="tx"><b>{x.name}{x.archived&&<span className="pill off sm">{tr('learn.archived')}</span>}</b><small className="sub">{tr(x.semesters===1?'prog.termOne':'prog.termMany',{n:x.semesters,term:x.term.toLowerCase()})}, {tr('learn.topicsN',{n:x.topics})}</small></span></span>
       <span className="sn">{x.courses}</span><span className="sn">{x.students}</span></button>)}
-    {!items.length&&<p className="known">{q?'No program matches that search.':status==='archived'?'No archived programs.':'No programs yet. Add one or bulk upload a CSV.'}</p>}
+    {!items.length&&<p className="known">{q?tr('prog.noMatch'):status==='archived'?tr('prog.noArchived'):tr('prog.noneYet')}</p>}
     {items.length<total&&<ShowMore left={total-items.length} onClick={more}/>}
     <input ref={fileRef} type="file" accept=".csv,.txt,text/csv" hidden onChange={pick}/></div>
     {ed&&<ProgramSheet p={ed} toast={toast} close={()=>setEd(null)} done={()=>{setEd(null);load()}}/>}
     {bulk&&<Sheet close={()=>setBulk(null)}>
-      {bulk.stage==='pick'&&<><h3>Bulk upload content</h3><p className="known">One row per topic, with the columns program, semester, course, unit and topic, plus optional content, question_pattern, sample_content and guideline. Blank program, semester, course or unit cells repeat the row above. Existing names are reused and existing topics are updated. Programs that don't exist yet are created.</p>
-        <button className="btn ghost" onClick={()=>download('template.csv',TEMPLATE)}>Download template</button><button className="btn" onClick={()=>fileRef.current.click()}>Choose CSV file</button></>}
-      {bulk.stage==='preview'&&<><h3>Ready to upload</h3><p className="known">{r.valid_rows} of {r.rows} rows are valid. New: {made}. Topics updated: {r.updated_topics}.</p>
-        {r.error_count>0&&<div className="prose" style={{maxHeight:'28vh',overflow:'auto',fontSize:14}}><b>{r.error_count} rows will be skipped</b>{r.errors.map(e=><div key={e.row}>Row {e.row}: {e.error}</div>)}</div>}
-        <button className="btn" disabled={!r.valid_rows} onClick={commit}>Upload {r.valid_rows} rows</button><button className="btn ghost" onClick={()=>setBulk(null)}>Cancel</button></>}
-      {bulk.stage==='done'&&<><h3>Upload complete</h3><p className="known">Created {made}. {r.updated_topics} topics updated.{r.error_count>0&&` ${r.error_count} rows were skipped.`}</p>
-        <button className="btn ghost" onClick={()=>setBulk(null)}>Close</button></>}
+      {bulk.stage==='pick'&&<><h3>{tr('prog.bulkTitle')}</h3><p className="known">{tr('prog.bulkIntro')}</p>
+        <button className="btn ghost" onClick={()=>download('template.csv',TEMPLATE)}>{tr('prog.template')}</button><button className="btn" onClick={()=>fileRef.current.click()}>{tr('prog.chooseCsv')}</button></>}
+      {bulk.stage==='preview'&&<><h3>{tr('prog.ready')}</h3><p className="known">{tr('prog.validRows',{a:r.valid_rows,b:r.rows})} {tr('prog.newMade',{made})} {tr('prog.topicsUpdated',{n:r.updated_topics})}</p>
+        {r.error_count>0&&<div className="prose" style={{maxHeight:'28vh',overflow:'auto',fontSize:14}}><b>{tr('prog.skipped',{n:r.error_count})}</b>{r.errors.map(e=><div key={e.row}>{tr('prog.rowErr',{row:e.row,error:e.error})}</div>)}</div>}
+        <button className="btn" disabled={!r.valid_rows} onClick={commit}>{tr('prog.uploadRows',{n:r.valid_rows})}</button><button className="btn ghost" onClick={()=>setBulk(null)}>{tr('common.cancel')}</button></>}
+      {bulk.stage==='done'&&<><h3>{tr('prog.complete')}</h3><p className="known">{tr('prog.created',{made})} {tr('prog.topicsUpdated',{n:r.updated_topics})}{r.error_count>0&&' '+tr('prog.rowsSkipped',{n:r.error_count})}</p>
+        <button className="btn ghost" onClick={()=>setBulk(null)}>{tr('common.close')}</button></>}
     </Sheet>}</>}
 
-function RolloverSheet({p,close,done,toast}){
+function RolloverSheet({p,close,done,toast}){const {t:tr}=useI18n();
   const [fin,setFin]=useState('keep'),[r,setR]=useState(null),[busy,setBusy]=useState(false)
   const url=`/admin/programs/${p.id}/rollover`
   useEffect(()=>{setR(null);api(url,{method:'POST',body:{dry_run:true,finishing:fin}}).then(setR).catch(e=>{toast(e.message);close()})},[fin]) 
-  const go=async()=>{setBusy(true);try{const x=await api(url,{method:'POST',body:{dry_run:false,finishing:fin}});toast(`${x.moved} students moved up`+(fin==='deactivate'&&x.finishing?`, ${x.finishing} accounts switched off`:''));done()}catch(e){toast(e.message);setBusy(false)}}
-  return <Sheet close={close}><h3>Start a new term</h3><p className="known">Moves every active student of {p.name} up one {p.term?.toLowerCase()||'semester'}. Do this once, when the new term begins.</p>
+  const go=async()=>{setBusy(true);try{const x=await api(url,{method:'POST',body:{dry_run:false,finishing:fin}});toast(tr('roll.moved',{n:x.moved})+(fin==='deactivate'&&x.finishing?', '+tr('roll.switchedOff',{n:x.finishing}):''));done()}catch(e){toast(e.message);setBusy(false)}}
+  return <Sheet close={close}><h3>{tr('roll.title')}</h3><p className="known">{tr('roll.intro',{name:p.name,term:p.term?.toLowerCase()||'semester'})}</p>
     {!r?<div className="sk"/>:<div className="qbox" style={{marginTop:0}}>
-      <div className="row"><div>{pl(r.moved,'student')}<small>{r.moved===1?'moves':'move'} up one {r.term.toLowerCase()}</small></div></div>
-      <div className="row"><div>{pl(r.finishing,'student')}<small>{r.finishing===1?'is':'are'} in the last {r.term.toLowerCase()} ({r.term} {r.last_semester}){r.finishing_names.length?': '+r.finishing_names.join(', ')+(r.finishing>r.finishing_names.length?'…':''):''}</small></div></div>
-      {r.unplaced>0&&<div className="row"><div>{pl(r.unplaced,'student')}<small>{r.unplaced===1?'has':'have'} no {r.term.toLowerCase()} set and are left alone: {r.unplaced_names.join(', ')}</small></div></div>}</div>}
-    <label htmlFor="fin">Students finishing the program</label><select id="fin" value={fin} onChange={e=>setFin(e.target.value)}><option value="keep">Leave them as they are</option><option value="deactivate">Switch their accounts off</option></select>
-    <button className="btn" disabled={busy||!r||(!r.moved&&!(fin==='deactivate'&&r.finishing))} onClick={go}>{busy?'Working…':'Apply'}</button><button className="btn ghost" onClick={close}>Cancel</button></Sheet>}
-function ProgramDetail({id,back,onOpen,toast}){
+      <div className="row"><div>{tr(r.moved===1?'roll.studentOne':'roll.studentMany',{n:r.moved})}<small>{tr(r.moved===1?'roll.moves':'roll.move',{term:r.term.toLowerCase()})}</small></div></div>
+      <div className="row"><div>{tr(r.finishing===1?'roll.studentOne':'roll.studentMany',{n:r.finishing})}<small>{tr(r.finishing===1?'roll.isLast':'roll.areLast',{term:r.term.toLowerCase(),tn:r.term,last:r.last_semester})}{r.finishing_names.length?': '+r.finishing_names.join(', ')+(r.finishing>r.finishing_names.length?'…':''):''}</small></div></div>
+      {r.unplaced>0&&<div className="row"><div>{tr(r.unplaced===1?'roll.studentOne':'roll.studentMany',{n:r.unplaced})}<small>{tr(r.unplaced===1?'roll.hasNoTerm':'roll.haveNoTerm',{term:r.term.toLowerCase(),names:r.unplaced_names.join(', ')})}</small></div></div>}</div>}
+    <label htmlFor="fin">{tr('roll.finishing')}</label><select id="fin" value={fin} onChange={e=>setFin(e.target.value)}><option value="keep">{tr('roll.keep')}</option><option value="deactivate">{tr('roll.deactivate')}</option></select>
+    <button className="btn" disabled={busy||!r||(!r.moved&&!(fin==='deactivate'&&r.finishing))} onClick={go}>{busy?tr('sheet.working'):tr('roll.apply')}</button><button className="btn ghost" onClick={close}>{tr('common.cancel')}</button></Sheet>}
+function ProgramDetail({id,back,onOpen,toast}){const {t:tr}=useI18n();
   const [p,setP]=useState(null),[ed,setEd]=useState(false),[ask,setAsk]=useState(false),[busy,setBusy]=useState(false),[addSem,setAddSem]=useState(false),[term,setTerm]=useState(false),[arch,setArch]=useState(null)
   const load=()=>api('/admin/programs/'+id).then(setP).catch(e=>{toast(e.message);back()})
   useEffect(()=>{load()},[id])
-  if(!p)return <><Bar title="Loading" back={back}/><div className="main"><div className="sk"/><div className="sk"/></div></>
-  const del=async()=>{setBusy(true);try{await api('/programs/'+p.id,{method:'DELETE'});toast('Program deleted');back()}catch(e){toast(e.message);setBusy(false)}}
+  if(!p)return <><Bar title={tr('common.loading')} back={back}/><div className="main"><div className="sk"/><div className="sk"/></div></>
+  const del=async()=>{setBusy(true);try{await api('/programs/'+p.id,{method:'DELETE'});toast(tr('prog.deleted'));back()}catch(e){toast(e.message);setBusy(false)}}
   const row=(v,l,k)=><div className="row" key={k}><div>{v}<small>{l}</small></div></div>
-  return <><Bar title={p.name} sub={pl(p.semesters,p.term.toLowerCase())+(p.pattern==='year'?' · annual':p.pattern==='grade'?' · school':'')+(p.archived?' · archived':'')} back={back}/><div className="main">
-    {p.archived&&<p className="known" style={{marginTop:0}}>This program is archived. Students see its courses as unavailable right now. Restore it to bring everything back.</p>}
-    <button className="btn ghost lead" onClick={()=>setArch({kind:'programs',id:p.id,name:p.name,on:!p.archived})}>{p.archived?'Restore program':'Archive program'}</button>
-    <div className="stats">{[['semesters',p.term+'s'],['courses','Courses'],['topics','Topics'],['students','Students']].map(([k,l])=><div className="stat" key={k}><b>{p[k]}</b>{l}</div>)}</div>
+  return <><Bar title={p.name} sub={tr(p.semesters===1?'prog.termOne':'prog.termMany',{n:p.semesters,term:p.term.toLowerCase()})+(p.pattern==='year'?' · '+tr('prog.annual'):p.pattern==='grade'?' · '+tr('prog.school'):'')+(p.archived?' · '+tr('prog.archivedLower'):'')} back={back}/><div className="main">
+    {p.archived&&<p className="known" style={{marginTop:0}}>{tr('prog.archivedNote')}</p>}
+    <button className="btn ghost lead" onClick={()=>setArch({kind:'programs',id:p.id,name:p.name,on:!p.archived})}>{p.archived?tr('prog.restoreProgram'):tr('prog.archiveProgram')}</button>
+    <div className="stats">{[['semesters',p.term+'s'],['courses',tr('home.courses')],['topics',tr('home.topics')],['students',tr('prog.students')]].map(([k,l])=><div className="stat" key={k}><b>{p[k]}</b>{l}</div>)}</div>
     <h3 className="sec">{p.term}s</h3>
-    {p.semester_list.length?p.semester_list.map((x,i)=><div key={x.id} className="card"><button className="hit" onClick={()=>onOpen([p.id,x.id])}><span className="dot" style={{background:COL[i%5]}}>{x.number||'?'}</span><div><b>{x.name}<ArchPill x={x}/></b><span>{(x.number?'':'No '+p.term.toLowerCase()+' number set · ')+x.courses+' courses, '+x.topics+' topics'}</span></div></button>{!p.archived&&<button className="ic sm" aria-label={(x.archived_self?'Restore ':'Archive ')+x.name} onClick={()=>setArch({kind:'semesters',id:x.id,name:x.name,on:!x.archived_self})}>{x.archived_self?<ArchiveRestore size={16}/>:<Archive size={16}/>}</button>}</div>):<p className="known">No {p.term.toLowerCase()}s yet.</p>}
-    <button className="btn ghost" onClick={()=>setAddSem(true)}>Add {p.term.toLowerCase()}</button>
-    <h3 className="sec">Students</h3>
-    {p.student_list.length?p.student_list.map(u=>row(u.name,(u.semester?p.term+' '+u.semester:p.term+' not set')+(u.active?'':', disabled'),u.id)):<p className="known">No students are enrolled yet. Set a program on a user's page.</p>}
-    {p.students>p.student_list.length&&<p className="known">Showing {p.student_list.length} of {p.students}. Use Users to see everyone.</p>}
-    {p.students>0&&<button className="btn ghost" onClick={()=>setTerm(true)}>Start a new term (move students up)</button>}
-    <div className="two"><button className="btn ghost" onClick={()=>setEd(true)}>Edit</button><button className="btn danger" onClick={()=>setAsk(true)}>Delete</button></div>
-    <button className="btn ghost" onClick={()=>onOpen([p.id])}>Open {p.term.toLowerCase()}s and courses</button></div>
+    {p.semester_list.length?p.semester_list.map((x,i)=><div key={x.id} className="card"><button className="hit" onClick={()=>onOpen([p.id,x.id])}><span className="dot" style={{background:COL[i%5]}}>{x.number||'?'}</span><div><b>{x.name}<ArchPill x={x}/></b><span>{(x.number?'':tr('learn.noNumber',{term:p.term.toLowerCase()})+' · ')+tr('learn.coursesN',{n:x.courses})+', '+tr('learn.topicsN',{n:x.topics})}</span></div></button>{!p.archived&&<button className="ic sm" aria-label={tr(x.archived_self?'learn.restoreOne':'learn.archiveOne',{n:x.name})} onClick={()=>setArch({kind:'semesters',id:x.id,name:x.name,on:!x.archived_self})}>{x.archived_self?<ArchiveRestore size={16}/>:<Archive size={16}/>}</button>}</div>):<p className="known">{tr('prog.noTerms',{term:p.term.toLowerCase()})}</p>}
+    <button className="btn ghost" onClick={()=>setAddSem(true)}>{tr('sheet.addTerm',{term:p.term.toLowerCase()})}</button>
+    <h3 className="sec">{tr('prog.students')}</h3>
+    {p.student_list.length?p.student_list.map(u=>row(u.name,(u.semester?p.term+' '+u.semester:tr('prog.termNotSet',{term:p.term}))+(u.active?'':', '+tr('prog.disabled')),u.id)):<p className="known">{tr('prog.noStudents')}</p>}
+    {p.students>p.student_list.length&&<p className="known">{tr('prog.showing',{a:p.student_list.length,b:p.students})}</p>}
+    {p.students>0&&<button className="btn ghost" onClick={()=>setTerm(true)}>{tr('prog.newTerm')}</button>}
+    <div className="two"><button className="btn ghost" onClick={()=>setEd(true)}>{tr('common.edit')}</button><button className="btn danger" onClick={()=>setAsk(true)}>{tr('sheet.delete')}</button></div>
+    <button className="btn ghost" onClick={()=>onOpen([p.id])}>{tr('prog.openTerms',{term:p.term.toLowerCase()})}</button></div>
     {term&&<RolloverSheet p={p} toast={toast} close={()=>setTerm(false)} done={()=>{setTerm(false);load()}}/>}
     {ed&&<ProgramSheet p={p} toast={toast} close={()=>setEd(false)} done={()=>{setEd(false);load()}}/>}
     {arch&&<ArchiveSheet a={arch} toast={toast} close={()=>setArch(null)} done={()=>{setArch(null);load()}}/>}
     {addSem&&<SemesterSheet sem={{}} pid={p.id} term={p.term} toast={toast} close={()=>setAddSem(false)} done={()=>{setAddSem(false);load()}}/>}
-    {ask&&<Sheet close={()=>setAsk(false)}><h3>Delete “{p.name}”?</h3><p className="known">This permanently deletes {pl(p.semesters,p.term.toLowerCase())}, {p.courses} courses, {p.units} units and {p.topics} topics, including their saved AI answers.{p.students>0&&` The ${p.students} enrolled students keep their accounts but lose their program.`}</p>
-      <button className="btn danger" disabled={busy} onClick={del}>Delete program</button><button className="btn ghost" onClick={()=>setAsk(false)}>Cancel</button></Sheet>}</>}
+    {ask&&<Sheet close={()=>setAsk(false)}><h3>{tr('prog.delTitle',{name:p.name})}</h3><p className="known">{tr('prog.delBody',{terms:tr(p.semesters===1?'prog.termOne':'prog.termMany',{n:p.semesters,term:p.term.toLowerCase()}),courses:p.courses,units:p.units,topics:p.topics})}{p.students>0&&' '+tr('prog.delStudents',{n:p.students})}</p>
+      <button className="btn danger" disabled={busy} onClick={del}>{tr('prog.deleteProgram')}</button><button className="btn ghost" onClick={()=>setAsk(false)}>{tr('common.cancel')}</button></Sheet>}</>}
 
-function OwnerSheet({c,close,done,toast}){
+function OwnerSheet({c,close,done,toast}){const {t:tr}=useI18n();
   const faculty=useFaculty(true),[sel,setSel]=useState(c.owner_id||''),[busy,setBusy]=useState(false)
-  const save=async()=>{if(String(sel)===String(c.owner_id||''))return close();setBusy(true);try{await api(`/courses/${c.id}/owner`,{method:'PUT',body:{user_id:sel?+sel:null}});toast('Owner updated');done()}catch(e){toast(e.message)}setBusy(false)}
-  return <Sheet close={close}><h3>Owner of “{c.name}”</h3><p className="known">The owner adds and edits this course's units, topics and quizzes. Changing the owner keeps all content and student progress.{c.owner_problem&&c.owner_id?' '+c.owner_problem+'.':''}</p>
-    <label>Owner (faculty)</label><select value={sel} onChange={e=>setSel(e.target.value)}><option value="">Not assigned</option>{c.owner_id&&!faculty.some(u=>u.id===c.owner_id)&&<option value={c.owner_id}>{c.owner} (can't edit)</option>}{faculty.map(u=><option key={u.id} value={u.id}>{u.name} ({u.email})</option>)}</select>
-    <button className="btn" disabled={busy} onClick={save}>Save</button><button className="btn ghost" onClick={close}>Cancel</button></Sheet>}
+  const save=async()=>{if(String(sel)===String(c.owner_id||''))return close();setBusy(true);try{await api(`/courses/${c.id}/owner`,{method:'PUT',body:{user_id:sel?+sel:null}});toast(tr('prog.ownerUpdated'));done()}catch(e){toast(e.message)}setBusy(false)}
+  return <Sheet close={close}><h3>{tr('prog.ownerOf',{name:c.name})}</h3><p className="known">{tr('prog.ownerHint')}{c.owner_problem&&c.owner_id?' '+c.owner_problem+'.':''}</p>
+    <label>{tr('sheet.ownerFaculty')}</label><select value={sel} onChange={e=>setSel(e.target.value)}><option value="">{tr('learn.notAssigned')}</option>{c.owner_id&&!faculty.some(u=>u.id===c.owner_id)&&<option value={c.owner_id}>{c.owner} ({tr('sheet.cantEdit')})</option>}{faculty.map(u=><option key={u.id} value={u.id}>{u.name} ({u.email})</option>)}</select>
+    <button className="btn" disabled={busy} onClick={save}>{tr('common.save')}</button><button className="btn ghost" onClick={close}>{tr('common.cancel')}</button></Sheet>}
 
-function ProgramSheet({p,close,done,toast}){
+function ProgramSheet({p,close,done,toast}){const {t:tr}=useI18n();
   const isNew=!p.id,[name,setName]=useState(p.name||''),[pat,setPat]=useState(p.pattern||'semester'),[terms,setTerms]=useState(PATTERN[pat][2]),[touched,setTouched]=useState(false),[busy,setBusy]=useState(false)
   const lab=PATTERN[pat][1],pick=k=>{setPat(k);setTerms(touched?Math.min(terms,maxOf(PATTERN[k][1])):PATTERN[k][2])}
-  const save=async()=>{setBusy(true);try{const r=await api(isNew?'/programs':'/programs/'+p.id,{method:isNew?'POST':'PUT',body:{name,pattern:pat,...(isNew?{terms}:{})}});toast(isNew?(r.terms?`Program added with ${r.terms} ${lab.toLowerCase()}${r.terms===1?'':'s'}`:'Program added'):'Changes saved');done()}catch(e){toast(e.message)}setBusy(false)}
-  return <Sheet close={close}><h3>{isNew?'New program':'Edit program'}</h3>
-    <label>Name</label><input value={name} onChange={e=>setName(e.target.value)} onKeyDown={e=>e.key==='Enter'&&save()} placeholder="B.E. Mechanical Engineering" autoFocus/>
-    <p className="known" style={{marginTop:10}}>Names must be unique. The users CSV import matches programs by name.</p>
-    <label id="pat">How is the program divided?</label><div role="group" aria-labelledby="pat" className="seg" style={{marginTop:0}}>{Object.entries(PATTERN).map(([k,[l]])=><button key={k} className={pat===k?'on':''} aria-pressed={pat===k} onClick={()=>pick(k)}>{l}</button>)}</div>
-    <p className="known" style={{marginTop:6}}>{PATTERN[pat][3]}</p>
-    {isNew?<><label htmlFor="nt">How many {lab.toLowerCase()}s?</label><select id="nt" value={terms} onChange={e=>{setTerms(+e.target.value);setTouched(true)}}>{[0,...upTo(maxOf(lab))].map(n=><option key={n} value={n}>{n===0?'None yet, I will add them myself':n}</option>)}</select>
-      <p className="known" style={{marginTop:6}}>{terms?`${lab} 1${terms>1?` to ${lab} ${terms}`:''} ${terms>1?'are':'is'} created for you, so you can go straight to adding courses.`:'You can add them one by one later.'}</p></>
-      :p.pattern&&pat!==p.pattern&&<p className="known" style={{marginTop:6}}>Terms still named “{PATTERN[p.pattern]?.[1]||'Semester'} n” are renamed to “{lab} n”. Terms you named yourself keep their names.{pat==='grade'&&' Any of Grade 1 to Grade 12 the program does not have yet are added.'}</p>}
-    <button className="btn" disabled={busy||!name.trim()} onClick={save}>{isNew?'Add program':'Save changes'}</button></Sheet>}
+  const save=async()=>{setBusy(true);try{const r=await api(isNew?'/programs':'/programs/'+p.id,{method:isNew?'POST':'PUT',body:{name,pattern:pat,...(isNew?{terms}:{})}});toast(isNew?(r.terms?tr(r.terms===1?'prog.addedWithOne':'prog.addedWithMany',{n:r.terms,term:lab.toLowerCase()}):tr('prog.added')):tr('topic.changesSaved'));done()}catch(e){toast(e.message)}setBusy(false)}
+  return <Sheet close={close}><h3>{isNew?tr('learn.newProgram'):tr('prog.editProgram')}</h3>
+    <label>{tr('sheet.name')}</label><input value={name} onChange={e=>setName(e.target.value)} onKeyDown={e=>e.key==='Enter'&&save()} placeholder={tr('prog.namePh')} autoFocus/>
+    <p className="known" style={{marginTop:10}}>{tr('prog.nameHint')}</p>
+    <label id="pat">{tr('prog.howDivided')}</label><div role="group" aria-labelledby="pat" className="seg" style={{marginTop:0}}>{Object.entries(PATTERN).map(([k,[l]])=><button key={k} className={pat===k?'on':''} aria-pressed={pat===k} onClick={()=>pick(k)}>{l}</button>)}</div>
+    <p className="known" style={{marginTop:6}}>{tr(PATTERN[pat][3])}</p>
+    {isNew?<><label htmlFor="nt">{tr('prog.howMany',{term:lab.toLowerCase()})}</label><select id="nt" value={terms} onChange={e=>{setTerms(+e.target.value);setTouched(true)}}>{[0,...upTo(maxOf(lab))].map(n=><option key={n} value={n}>{n===0?tr('prog.noneYetOption'):n}</option>)}</select>
+      <p className="known" style={{marginTop:6}}>{terms?tr(terms>1?'prog.createdMany':'prog.createdOne',{lab,n:terms}):tr('prog.laterOne')}</p></>
+      :p.pattern&&pat!==p.pattern&&<p className="known" style={{marginTop:6}}>{tr('prog.renamed',{from:PATTERN[p.pattern]?.[1]||'Semester',to:lab})}{pat==='grade'&&' '+tr('prog.gradeAdd')}</p>}
+    <button className="btn" disabled={busy||!name.trim()} onClick={save}>{isNew?tr('prog.addProgram'):tr('topic.saveChanges')}</button></Sheet>}
 
 function Branding({toast,onSaved}){
   const [name,setName]=useState(''),[logo,setLogo]=useState(null),[busy,setBusy]=useState(false),file=useRef(null)
@@ -1054,14 +1054,14 @@ function CourseReports({toast,onOpen}){
     {rows&&!rows.length&&<p className="known">No courses match.</p>}
     {rows?.map(x=><button className="row rowbtn" key={x.course_id} onClick={()=>onOpen(x)}><div>{x.course}<small>{x.program} · {x.semester} · {x.students} students · {x.topics} topics · {x.avg_completion}% read{x.quizzes?' · quiz avg '+(x.avg_quiz_percent??'–')+'%':''}</small><Bar2 v={x.avg_completion}/></div><ChevronRight size={18}/></button>)}
     {rows?.length>0&&<button className="btn ghost" onClick={()=>fetchFile('/reports/courses?format=csv&program_id='+f.p+'&semester='+f.s,'courses.csv',toast)}>Download courses CSV</button>}</>}
-function StudentReport({c,back,toast}){
+function StudentReport({c,back,toast}){const {t:tr}=useI18n();
   const [d,setD]=useState(null),[w,setW]=useState(null);useEffect(()=>{api(`/reports/courses/${c.course_id}/students`).then(setD).catch(e=>toast(e.message));api(`/reports/courses/${c.course_id}/weak-areas`).then(setW).catch(()=>{})},[])
   return <><Bar title={c.course} sub={c.program+' · '+c.semester} back={back}/><div className="main">
-    {w&&w.areas.length>0&&<><h3 className="sec first">Topics the class finds hard</h3><p className="known" style={{margin:'0 0 8px'}}>From each student's latest quiz results, weakest first.</p>{w.areas.slice(0,8).map(a=><div className="row" key={a.topic_id||'u'+a.unit_id}><div>{a.title}<small>{a.percent}% right overall · {a.needs_study} of {a.students} students need another round of study</small><Bar2 v={a.percent}/></div></div>)}<h3 className="sec">Students</h3></>}
+    {w&&w.areas.length>0&&<><h3 className="sec first">Topics the class finds hard</h3><p className="known" style={{margin:'0 0 8px'}}>From each student's latest quiz results, weakest first.</p>{w.areas.slice(0,8).map(a=><div className="row" key={a.topic_id||'u'+a.unit_id}><div>{a.title}<small>{a.percent}% right overall · {a.needs_study} of {a.students} students need another round of study</small><Bar2 v={a.percent}/></div></div>)}<h3 className="sec">{tr('prog.students')}</h3></>}
     {d&&!d.students.length&&<p className="known">No students are enrolled for this course yet.</p>}
     {d?.students.map(x=><div className="row" key={x.email}><div>{x.name}{!x.active&&<span className="pill off sm">Disabled</span>}<small>{x.completion}% · {x.topics_read}/{x.topics} topics{c.quizzes?' · quizzes '+x.quizzes_taken+'/'+x.quizzes+(x.avg_quiz_percent!=null?', avg '+x.avg_quiz_percent+'%':''):''} · last active {day(x.last_active)}</small>{(x.strong.length>0||x.needs_study.length>0)&&<small>{x.strong.length>0&&'Strong: '+x.strong.join(', ')}{x.strong.length>0&&x.needs_study.length>0&&' · '}{x.needs_study.length>0&&'Needs another round: '+x.needs_study.join(', ')}</small>}<Bar2 v={x.completion}/></div></div>)}
     {d?.students.length>0&&<button className="btn ghost" onClick={()=>fetchFile(`/reports/courses/${c.course_id}/students?format=csv`,'students-'+c.course.replace(/\s+/g,'_')+'.csv',toast)}>Download students CSV</button>}</div></>}
-function Reports({role,toast}){
+function Reports({role,toast}){const {t:tr}=useI18n();
   const [st,setSt]=useState({}),[r,setR]=useState(null),[open,setOpen]=useState(null)
   useEffect(()=>{if(role==='faculty')return;api('/admin/stats').then(setSt);api('/admin/reports').then(setR)},[])
   if(open)return <StudentReport c={open} back={()=>setOpen(null)} toast={toast}/>
@@ -1072,7 +1072,7 @@ function Reports({role,toast}){
     <h3 className="sec">Courses</h3><CourseReports toast={toast} onOpen={setOpen}/>
     <h3 className="sec">Most read topics</h3>
     {list(r?.top_topics,'No reading activity yet.',x=><div>{x.title}<small>{x.readers} students, {x.reads} reads</small></div>)}
-    <h3 className="sec">Students</h3>
+    <h3 className="sec">{tr('prog.students')}</h3>
     {list(r?.students,'No students yet.',x=><div>{x.name}<small>{x.topics_read} topics read, last active {day(x.last_active)}{!x.active&&', disabled'}</small></div>)}
     <h3 className="sec">Saved AI answers</h3>
     {list(r?.ai,'Nothing saved yet.',x=><div>{x.title}<small>{x.kind==='explain'?'Explanation':'Sample answer'}, reused {x.hits} times, {x.saved.toLocaleString()} tokens saved</small></div>)}</div></>}
