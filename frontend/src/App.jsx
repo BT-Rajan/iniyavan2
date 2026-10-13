@@ -141,29 +141,29 @@ function MyAiKey({toast}){
     <button className="btn" disabled={b||!key.trim()} onClick={save}>{b?'Checking the key…':'Save key'}</button>
     {d?.key_set&&<button className="btn ghost" onClick={del}>Remove my key</button>}</div></>}
 
-function PromptEditor({toast}){
+function PromptEditor({toast}){const {t:tr}=useI18n();
   const confirm=useConfirm()
   const [items,setItems]=useState(null),[draft,setDraft]=useState({}),[busy,setBusy]=useState('')
   const load=()=>api('/admin/prompts').then(r=>{setItems(r.items);setDraft({})}).catch(e=>toast(e.message));useEffect(()=>{load()},[])
   if(!items)return <div className="sk"/>
-  const save=async x=>{const text=draft[x.kind];if(x.saved_answers>0&&!await confirm({title:'Save this prompt?',body:`Saving discards the ${pl(x.saved_answers,'saved answer')} written with the old prompt, so students get fresh ones.`,ok:'Save prompt'}))return
-    setBusy(x.kind);try{const r=await api('/admin/prompts/'+x.kind,{method:'PUT',body:{text}});toast('Prompt saved'+(r.cleared?` · ${pl(r.cleared,'saved answer')} cleared`:''));load()}catch(e){toast(e.message)}setBusy('')}
-  const reset=async x=>{if(!await confirm({title:'Go back to the built-in prompt?',body:x.saved_answers?`This also discards ${pl(x.saved_answers,'saved answer')}.`:null,ok:'Reset to built-in'}))return
-    setBusy(x.kind);try{await api('/admin/prompts/'+x.kind,{method:'DELETE'});toast('Back to the built-in prompt');load()}catch(e){toast(e.message)}setBusy('')}
-  return <><p className="known">These are the instructions the AI gets before it answers. Change the tone, depth, language or format to suit your students. Saving a prompt discards the saved answers it wrote, so the new wording applies from the next question (that costs tokens again).</p>
+  const save=async x=>{const text=draft[x.kind];if(x.saved_answers>0&&!await confirm({title:tr('prompts.saveTitle'),body:tr('prompts.saveBody',{count:tr(x.saved_answers===1?'prompts.answerOne':'prompts.answerMany',{n:x.saved_answers})}),ok:tr('prompts.save')}))return
+    setBusy(x.kind);try{const r=await api('/admin/prompts/'+x.kind,{method:'PUT',body:{text}});toast(r.cleared?tr('prompts.savedCleared',{count:tr(r.cleared===1?'prompts.answerOne':'prompts.answerMany',{n:r.cleared})}):tr('prompts.saved'));load()}catch(e){toast(e.message)}setBusy('')}
+  const reset=async x=>{if(!await confirm({title:tr('prompts.resetTitle'),body:x.saved_answers?tr('prompts.resetBody',{count:tr(x.saved_answers===1?'prompts.answerOne':'prompts.answerMany',{n:x.saved_answers})}):null,ok:tr('prompts.resetOk')}))return
+    setBusy(x.kind);try{await api('/admin/prompts/'+x.kind,{method:'DELETE'});toast(tr('prompts.back'));load()}catch(e){toast(e.message)}setBusy('')}
+  return <><p className="known">{tr('prompts.intro')}</p>
     {items.map(x=>{const v=draft[x.kind]??x.text,dirty=v.trim()!==x.text.trim()
-      return <div key={x.kind} className="qbox"><b>{x.label}{x.custom&&<span className="chip" style={{marginLeft:8}}>Edited</span>}</b><p className="known" style={{margin:'4px 0 8px'}}>{x.help}</p>
-        <textarea aria-label={x.label+' prompt'} rows={9} value={v} maxLength={4000} onChange={e=>setDraft({...draft,[x.kind]:e.target.value})}/>
-        <small className="known">{v.length} / 4000 characters</small>
-        <div className="two"><button className="btn" disabled={!dirty||busy===x.kind||v.trim().length<20} onClick={()=>save(x)}>Save prompt</button><button className="btn ghost" disabled={busy===x.kind||(!x.custom&&!dirty)} onClick={()=>x.custom?reset(x):setDraft({...draft,[x.kind]:x.default})}>{x.custom?'Reset to built-in':'Undo changes'}</button></div></div>})}</>}
+      return <div key={x.kind} className="qbox"><b>{x.label}{x.custom&&<span className="chip" style={{marginLeft:8}}>{tr('prompts.edited')}</span>}</b><p className="known" style={{margin:'4px 0 8px'}}>{x.help}</p>
+        <textarea aria-label={tr('prompts.aria',{label:x.label})} rows={9} value={v} maxLength={4000} onChange={e=>setDraft({...draft,[x.kind]:e.target.value})}/>
+        <small className="known">{tr('prompts.chars',{n:v.length})}</small>
+        <div className="two"><button className="btn" disabled={!dirty||busy===x.kind||v.trim().length<20} onClick={()=>save(x)}>{tr('prompts.save')}</button><button className="btn ghost" disabled={busy===x.kind||(!x.custom&&!dirty)} onClick={()=>x.custom?reset(x):setDraft({...draft,[x.kind]:x.default})}>{x.custom?tr('prompts.resetOk'):tr('prompts.undo')}</button></div></div>})}</>}
 
-function SelfReg({cfg,run}){
+function SelfReg({cfg,run}){const {t:tr}=useI18n();
   const [dom,setDom]=useState(null);const on=!!cfg.self_registration,shown=dom??cfg.allowed_domains??''
-  return <><p className="known">{on?'On. The sign-in page shows “Create an account”. People confirm their email with a code, then you place them in a program and semester or year from Users (they show as Self-registered).':'Off. Only admins can create accounts.'} {!cfg.mail_on&&'Emailing codes needs SMTP set up first (see the email section below), so registration stays closed until it is.'} {cfg.self_registered_users>0&&`${cfg.self_registered_users} people have registered themselves so far.`}</p>
-    <label className="chk"><input type="checkbox" checked={on} onChange={e=>run(()=>api('/admin/settings',{method:'PUT',body:{self_registration:e.target.checked}}),e.target.checked?'Self-registration is on':'Self-registration is off')}/> Allow people to register themselves</label>
-    <label htmlFor="dom">Only these email domains (optional)</label><input id="dom" value={shown} onChange={e=>setDom(e.target.value)} placeholder="college.edu, mail.college.edu"/>
-    <button className="btn ghost" onClick={()=>run(()=>api('/admin/settings',{method:'PUT',body:{allowed_domains:shown}}).then(()=>setDom(null)),'Domains saved')}>Save domains</button>
-    <p className="known">Self-registered people always use their own DeepSeek key, never yours.</p></>}
+  return <><p className="known">{tr(on?'selfreg.on':'selfreg.off')} {!cfg.mail_on&&tr('selfreg.needMail')} {cfg.self_registered_users>0&&tr('selfreg.count',{n:cfg.self_registered_users})}</p>
+    <label className="chk"><input type="checkbox" checked={on} onChange={e=>run(()=>api('/admin/settings',{method:'PUT',body:{self_registration:e.target.checked}}),e.target.checked?tr('selfreg.nowOn'):tr('selfreg.nowOff'))}/> {tr('selfreg.allow')}</label>
+    <label htmlFor="dom">{tr('selfreg.domains')}</label><input id="dom" value={shown} onChange={e=>setDom(e.target.value)} placeholder="college.edu, mail.college.edu"/>
+    <button className="btn ghost" onClick={()=>run(()=>api('/admin/settings',{method:'PUT',body:{allowed_domains:shown}}).then(()=>setDom(null)),tr('selfreg.domainsSaved'))}>{tr('selfreg.saveDomains')}</button>
+    <p className="known">{tr('selfreg.keyNote')}</p></>}
 
 function ResetPassword({token,toast,msg,done,leave,canReset,appName,logo}){
   const {t}=useI18n()
@@ -380,7 +380,7 @@ function Dashboard({user,toast,onOpen,onSearch}){const {t:tr}=useI18n();
     {due.length>0&&<><h3 className="sec">{tr('home.comingUp')}</h3>{due.map(t=><button key={t.id} className="row rowbtn" onClick={()=>setTopic(t.id)}><div>{t.title}<small>{tr('home.dueOn',{course:t.x.c.name,when:when(t.learning_due_at)})}</small></div>{t.overdue&&<span className="pill off sm">{tr('home.overdue')}</span>}<ChevronRight size={18}/></button>)}</>}
     {need.length>0&&<><h3 className="sec">{tr('home.worthRound')}</h3><AreaList areas={need} onStudy={setTopic}/></>}
   </div></>}
-function SearchPage({user,toast}){
+function SearchPage({user,toast}){const {t:tr}=useI18n();
   const [q,setQ]=useState(''),[live,setLive]=useState(null),[asked,setAsked]=useState(''),[ai,setAi]=useState(null),[aiBusy,setAiBusy]=useState(false),[aiErr,setAiErr]=useState(''),[topic,setTopic]=useState(null),[pend,setPend]=useState(false)
   const typed=q.trim()
   useEffect(()=>{if(typed.length<2){setLive(null);return}const t=setTimeout(()=>api('/search?q='+encodeURIComponent(typed)).then(r=>setLive({...r,for:typed})).catch(()=>{}),300);return()=>clearTimeout(t)},[typed])
@@ -390,20 +390,20 @@ function SearchPage({user,toast}){
       if(!r.results.length||!r.confident)await askAi(typed,false)}catch(e){toast(e.message);setPend(false)}}  // nothing good in the app's own notes, so the AI answers
   if(topic)return <Topic id={topic} back={()=>setTopic(null)} toast={toast} role={user.role}/>
   const res=asked&&live?.for===asked?live:null,aiNote=ai&&res&&res.results.length>0&&!res.confident
-  return <><Bar title="Search" sub="Find a topic, or ask the AI"/><div className="main">
-    <div className="search"><Search size={18}/><input type="search" aria-label="Search topics" autoFocus placeholder="e.g. temporary hardness of water" value={q} maxLength={200} onChange={e=>setQ(e.target.value)} onKeyDown={e=>e.key==='Enter'&&submit()}/></div>
-    <button className="btn" disabled={pend||aiBusy||typed.length<2} onClick={submit}>{pend?'Searching…':'Search'}</button>
-    {!asked&&live&&live.results.length>0&&<><h3 className="sec">Topics in your courses</h3><p className="known">Press Enter to search properly. If nothing here fits, the AI answers.</p>{live.results.slice(0,5).map(x=><Hit key={x.id} x={x} open={setTopic}/>)}</>}
-    {!asked&&typed.length>=2&&live&&!live.results.length&&<p className="known">Nothing in your courses matches yet. Press Enter and the AI will answer instead.</p>}
-    {res&&<>{res.results.length>0?<><h3 className="sec">{aiNote?'Possible matches in your courses':'In your courses'}</h3>{res.results.map(x=><Hit key={x.id} x={x} open={setTopic}/>)}</>
-      :<p className="known" style={{marginTop:18}}>Nothing in your courses matches “{asked}”.</p>}
-      {!ai&&!aiBusy&&<button className="btn ghost" onClick={()=>askAi(asked,false)}><Sparkles size={16}/> Not what you wanted? Recheck with AI</button>}</>}
-    {aiBusy&&<div className="qbox" aria-live="polite"><b>Asking the AI…</b><div className="sk"/></div>}
-    {aiErr&&<div className="qbox" role="alert"><b>The AI could not answer</b><p className="known" style={{margin:'6px 0 0'}}>{aiErr}</p></div>}
-    {ai&&!aiBusy&&<><h3 className="sec">AI answer</h3><div className="prose">{ai.cached&&<span className="chip">Saved answer · no tokens used</span>}<Md>{ai.text}</Md></div>
-      <p className="known">AI answers can contain mistakes. Check them against your notes and textbook.</p>
-      <button className="btn ghost" disabled={aiBusy} onClick={()=>askAi(ai.for,true)}><Sparkles size={16}/> Not happy? Recheck with AI</button></>}</div></>}
-function Hit({x,open}){return <button className="hitrow" onClick={()=>open(x.id)}><b>{x.title}{x.in_title&&<span className="chip" style={{marginLeft:8}}>Best match</span>}</b><small>{[x.program,x.semester,x.course,x.unit].filter(Boolean).join(' › ')}</small>{x.snippet&&<span className="snip">{x.snippet}</span>}</button>}
+  return <><Bar title={tr('search.title')} sub={tr('search.sub')}/><div className="main">
+    <div className="search"><Search size={18}/><input type="search" aria-label={tr('search.aria')} autoFocus placeholder={tr('search.ph')} value={q} maxLength={200} onChange={e=>setQ(e.target.value)} onKeyDown={e=>e.key==='Enter'&&submit()}/></div>
+    <button className="btn" disabled={pend||aiBusy||typed.length<2} onClick={submit}>{pend?tr('search.searching'):tr('search.go')}</button>
+    {!asked&&live&&live.results.length>0&&<><h3 className="sec">{tr('search.inCourses')}</h3><p className="known">{tr('search.pressEnter')}</p>{live.results.slice(0,5).map(x=><Hit key={x.id} x={x} open={setTopic}/>)}</>}
+    {!asked&&typed.length>=2&&live&&!live.results.length&&<p className="known">{tr('search.noneYet')}</p>}
+    {res&&<>{res.results.length>0?<><h3 className="sec">{aiNote?tr('search.possible'):tr('search.inCourses')}</h3>{res.results.map(x=><Hit key={x.id} x={x} open={setTopic}/>)}</>
+      :<p className="known" style={{marginTop:18}}>{tr('search.noneFor',{q:asked})}</p>}
+      {!ai&&!aiBusy&&<button className="btn ghost" onClick={()=>askAi(asked,false)}><Sparkles size={16}/> {tr('search.recheck')}</button>}</>}
+    {aiBusy&&<div className="qbox" aria-live="polite"><b>{tr('search.asking')}</b><div className="sk"/></div>}
+    {aiErr&&<div className="qbox" role="alert"><b>{tr('search.failed')}</b><p className="known" style={{margin:'6px 0 0'}}>{aiErr}</p></div>}
+    {ai&&!aiBusy&&<><h3 className="sec">{tr('search.aiAnswer')}</h3><div className="prose">{ai.cached&&<span className="chip">{tr('search.saved')}</span>}<Md>{ai.text}</Md></div>
+      <p className="known">{tr('search.mistakes')}</p>
+      <button className="btn ghost" disabled={aiBusy} onClick={()=>askAi(ai.for,true)}><Sparkles size={16}/> {tr('search.unhappy')}</button></>}</div></>}
+function Hit({x,open}){const {t:tr}=useI18n();return <button className="hitrow" onClick={()=>open(x.id)}><b>{x.title}{x.in_title&&<span className="chip" style={{marginLeft:8}}>{tr('search.best')}</span>}</b><small>{[x.program,x.semester,x.course,x.unit].filter(Boolean).join(' › ')}</small>{x.snippet&&<span className="snip">{x.snippet}</span>}</button>}
 
 function Insights({toast,role}){
   const [d,setD]=useState(null),[topic,setTopic]=useState(null),[sc,setSc]=useState(null)
@@ -994,49 +994,53 @@ function ProgramSheet({p,close,done,toast}){const {t:tr}=useI18n();
       :p.pattern&&pat!==p.pattern&&<p className="known" style={{marginTop:6}}>{tr('prog.renamed',{from:PATTERN[p.pattern]?.[1]||'Semester',to:lab})}{pat==='grade'&&' '+tr('prog.gradeAdd')}</p>}
     <button className="btn" disabled={busy||!name.trim()} onClick={save}>{isNew?tr('prog.addProgram'):tr('topic.saveChanges')}</button></Sheet>}
 
-function Branding({toast,onSaved}){
+function Branding({toast,onSaved}){const {t:tr}=useI18n();
   const [name,setName]=useState(''),[logo,setLogo]=useState(null),[busy,setBusy]=useState(false),file=useRef(null)
   useEffect(()=>{api('/config').then(c=>{setName(c.name);setLogo(c.logo)}).catch(()=>{})},[])
   const pick=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;setBusy(true)
     try{const r=await fetch('/api/uploads',{method:'POST',headers:{Authorization:'Bearer '+localStorage.t,'Content-Type':f.type},body:f}),j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.detail||'Upload failed');setLogo(j.url)}catch(x){toast(x.message)}setBusy(false)}
-  const save=async body=>{setBusy(true);try{await api('/admin/branding',{method:'PUT',body});toast('Saved');onSaved()}catch(e){toast(e.message)}setBusy(false)}
-  return <><h3 className="sec first">Institution name and logo</h3><p className="known">Shown on the sign-in page and in the menu. Use a square PNG, JPG or WebP under 3 MB.</p>
-    <div className="lpreview"><Logo src={logo} size={48}/><b>{name||'Name'}</b></div>
-    <label htmlFor="inst">Name</label><input id="inst" value={name} maxLength={60} onChange={e=>setName(e.target.value)}/>
+  const save=async body=>{setBusy(true);try{await api('/admin/branding',{method:'PUT',body});toast(tr('brand.saved'));onSaved()}catch(e){toast(e.message)}setBusy(false)}
+  return <><h3 className="sec first">{tr('brand.title')}</h3><p className="known">{tr('brand.hint')}</p>
+    <div className="lpreview"><Logo src={logo} size={48}/><b>{name||tr('sheet.name')}</b></div>
+    <label htmlFor="inst">{tr('sheet.name')}</label><input id="inst" value={name} maxLength={60} onChange={e=>setName(e.target.value)}/>
     <input ref={file} type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden onChange={pick}/>
-    <div className="two"><button className="btn ghost" disabled={busy} onClick={()=>file.current.click()}><Upload size={16}/> {logo?'Replace logo':'Upload logo'}</button>
-      <button className="btn ghost" disabled={busy||!logo} onClick={()=>{setLogo(null);save({remove_logo:true,name})}}>Remove logo</button></div>
-    <button className="btn" disabled={busy} onClick={()=>save({name,logo_url:logo||undefined})}>Save name and logo</button></>}
-function AiConfig({toast,onBrand}){
+    <div className="two"><button className="btn ghost" disabled={busy} onClick={()=>file.current.click()}><Upload size={16}/> {logo?tr('brand.replace'):tr('brand.upload')}</button>
+      <button className="btn ghost" disabled={busy||!logo} onClick={()=>{setLogo(null);save({remove_logo:true,name})}}>{tr('brand.remove')}</button></div>
+    <button className="btn" disabled={busy} onClick={()=>save({name,logo_url:logo||undefined})}>{tr('brand.save')}</button></>}
+function AiConfig({toast,onBrand}){const {t:tr}=useI18n();
   const confirm=useConfirm()
   const [cfg,setCfg]=useState({}),[key,setKey]=useState(''),[model,setModel]=useState(''),[st,setSt]=useState({})
   const load=()=>{api('/admin/settings').then(c=>{setCfg(c);setModel(c.model)});api('/admin/stats').then(setSt)};useEffect(load,[])
   const run=useRun(toast,load)
-  return <><Bar title="Settings" sub={cfg.key_set?'AI is on · key '+cfg.key_hint:'AI is off · no key yet'}/><div className="main"><Branding toast={toast} onSaved={onBrand}/><h3 className="sec">AI</h3>
-    <label>DeepSeek API key</label><input type="password" value={key} onChange={e=>setKey(e.target.value)} placeholder={cfg.key_set?'Leave blank to keep the current key':'sk-…'}/>
-    <label>Model</label><input value={model} onChange={e=>setModel(e.target.value)} placeholder="deepseek-chat"/>
-    <button className="btn" onClick={()=>run(()=>api('/admin/settings',{method:'PUT',body:{deepseek_key:key,model}}).then(()=>setKey('')),'AI settings saved')}>Save</button>
-    {cfg.key_set&&<><button className="btn ghost" onClick={async()=>{try{toast((await api('/admin/ai/test',{method:'POST'})).message)}catch(e){toast(e.message)}}}>Test the key</button>
-      <button className="btn ghost" onClick={async()=>{if(await confirm({title:'Turn AI off for everyone?',body:'Students will see “AI unavailable” until you save a key again.',ok:'Turn AI off',danger:true}))run(()=>api('/admin/settings',{method:'PUT',body:{remove_key:true}}),'AI is off')}}>Remove the key (turn AI off)</button></>}
-    <p className="known" style={{marginTop:20}}>One key serves every student added by staff (people who register themselves use their own key). Until a key is saved, students see “AI unavailable. Try again later.” Each topic is explained once and the answer is shared with every student. {(st.cached??0).toLocaleString()} answers are saved so far, which has saved about {(st.tokens_saved??0).toLocaleString()} tokens.</p>
-    <h3 className="sec">AI prompts</h3><PromptEditor toast={toast}/>
-    <h3 className="sec">Self-registration</h3><SelfReg cfg={cfg} run={run}/>
-    <h3 className="sec">Password reset email</h3><p className="known">{cfg.mail_on?'On. People can reset their own password from the sign-in page.':'Off. The sign-in page tells people to ask an admin. To turn it on, set SMTP_HOST, SMTP_FROM and APP_URL in .env and restart (see .env.example).'}</p>
-    {cfg.mail_on&&<button className="btn ghost" onClick={async()=>{try{toast((await api('/admin/mail/test',{method:'POST'})).message)}catch(e){toast(e.message)}}}>Send a test email to me</button>}</div></>}
+  return <><Bar title={tr('ai.settings')} sub={cfg.key_set?tr('ai.onKey',{hint:cfg.key_hint}):tr('ai.offNoKey')}/><div className="main"><Branding toast={toast} onSaved={onBrand}/><h3 className="sec">{tr('ai.heading')}</h3>
+    <label>{tr('ai.keyLabel')}</label><input type="password" value={key} onChange={e=>setKey(e.target.value)} placeholder={cfg.key_set?tr('ai.keepKey'):tr('ai.keyPh')}/>
+    <label>{tr('ai.model')}</label><input value={model} onChange={e=>setModel(e.target.value)} placeholder="deepseek-chat"/>
+    <button className="btn" onClick={()=>run(()=>api('/admin/settings',{method:'PUT',body:{deepseek_key:key,model}}).then(()=>setKey('')),tr('ai.saved'))}>{tr('common.save')}</button>
+    {cfg.key_set&&<><button className="btn ghost" onClick={async()=>{try{toast((await api('/admin/ai/test',{method:'POST'})).message)}catch(e){toast(e.message)}}}>{tr('ai.test')}</button>
+      <button className="btn ghost" onClick={async()=>{if(await confirm({title:tr('ai.offTitle'),body:tr('ai.offBody'),ok:tr('ai.offOk'),danger:true}))run(()=>api('/admin/settings',{method:'PUT',body:{remove_key:true}}),tr('ai.off'))}}>{tr('ai.removeKey')}</button></>}
+    <p className="known" style={{marginTop:20}}>{tr('ai.intro',{cached:(st.cached??0).toLocaleString(),tokens:(st.tokens_saved??0).toLocaleString()})}</p>
+    <h3 className="sec">{tr('ai.prompts')}</h3><PromptEditor toast={toast}/>
+    <h3 className="sec">{tr('selfreg.title')}</h3><SelfReg cfg={cfg} run={run}/>
+    <h3 className="sec">{tr('mail.title')}</h3><p className="known">{tr(cfg.mail_on?'mail.on':'mail.off')}</p>
+    {cfg.mail_on&&<button className="btn ghost" onClick={async()=>{try{toast((await api('/admin/mail/test',{method:'POST'})).message)}catch(e){toast(e.message)}}}>{tr('mail.test')}</button>}</div></>}
 
-const VERB={POST:'Created',PUT:'Changed',PATCH:'Edited',DELETE:'Deleted'}
-const describe=(m,p)=>{const s=p.replace(/^\/api\//,'').split('/'),id=s.find(x=>/^\d+$/.test(x)),n=s.filter(x=>!/^\d+$/.test(x)),last=n[n.length-1],noun=n[0]==='admin'?n[1]:n[0],one=(noun||'').replace(/s$/,'')
-  if(p==='/api/uploads')return 'Uploaded an image';if(p==='/api/me/password')return 'Changed own password'
-  if(p==='/api/admin/import')return 'Imported content from CSV';if(p==='/api/admin/users/import')return 'Imported users from CSV'
-  if(last==='reset-password')return `Reset the password of user #${id}`;if(last==='courses')return `Assigned courses to user #${id}`;if(last==='links')return `Changed where course #${id} is shared`
-  if(last==='publish')return `Changed publish state of ${one} #${id}`;if(n[0]==='admin'&&n[1]==='settings')return 'Changed settings'
-  return `${VERB[m]||m} ${one}${id?' #'+id:''}`}
-function Activity(){
+const VERB={POST:'activity.created',PUT:'activity.changed',PATCH:'activity.edited',DELETE:'activity.deleted'}
+const NOUN_KEYS=['program','semester','course','unit','topic','user','quiz','question','prompt','setting','year','grade','term','answer','file']
+const describe=(m,p,tr)=>{const s=p.replace(/^\/api\//,'').split('/'),id=s.find(x=>/^\d+$/.test(x)),n=s.filter(x=>!/^\d+$/.test(x)),last=n[n.length-1],noun=n[0]==='admin'?n[1]:n[0],one=(noun||'').replace(/s$/,'')
+  const word=w=>{const k='noun.'+w;const v=tr(k);return NOUN_KEYS.includes(w)?v:w}
+  if(p==='/api/uploads')return tr('activity.uploaded');if(p==='/api/me/password')return tr('activity.ownPw')
+  if(p==='/api/admin/import')return tr('activity.importContent');if(p==='/api/admin/users/import')return tr('activity.importUsers')
+  if(last==='reset-password')return tr('activity.resetPw',{id});if(last==='courses')return tr('activity.assigned',{id})
+  if(last==='links')return tr('activity.shared',{id})
+  if(last==='publish')return tr('activity.publish',{noun:word(one),id})
+  if(n[0]==='admin'&&n[1]==='settings')return tr('activity.settings')
+  return tr('activity.generic',{verb:VERB[m]?tr(VERB[m]):m,noun:word(one),id:id?' #'+id:''})}
+function Activity(){const {t:tr}=useI18n();
   const [q,setQ]=useState(''),[rows,setRows]=useState([]),[total,setTotal]=useState(0),[busy,setBusy]=useState(false)
   const load=(more)=>{setBusy(true);api(`/admin/audit?q=${encodeURIComponent(q)}&offset=${more?rows.length:0}&limit=50`).then(r=>{setRows(more?[...rows,...r.items]:r.items);setTotal(r.total)}).finally(()=>setBusy(false))}
   useEffect(()=>{const t=setTimeout(()=>load(false),250);return()=>clearTimeout(t)},[q])
-  return <><Bar title="Activity log" sub="Who changed what"/><div className="main"><div className="search"><Search size={18}/><input type="search" aria-label="Search the activity log" placeholder="Search by person or action" value={q} onChange={e=>setQ(e.target.value)}/></div>
-    {rows.length?rows.map(x=><div className="row" key={x.id}><div>{describe(x.method,x.path)}{x.status>=400&&<span className="pill off sm">{x.status===403?'Not allowed':'Failed'}</span>}<small>{x.user} · {when(x.at)}</small></div></div>):busy?<Skeleton/>:<p className="known">No activity yet.</p>}
+  return <><Bar title={tr('activity.title')} sub={tr('activity.sub')}/><div className="main"><div className="search"><Search size={18}/><input type="search" aria-label={tr('activity.search')} placeholder={tr('activity.searchPh')} value={q} onChange={e=>setQ(e.target.value)}/></div>
+    {rows.length?rows.map(x=><div className="row" key={x.id}><div>{describe(x.method,x.path,tr)}{x.status>=400&&<span className="pill off sm">{x.status===403?tr('activity.notAllowed'):tr('activity.failed')}</span>}<small>{x.user} · {when(x.at)}</small></div></div>):busy?<Skeleton/>:<p className="known">{tr('activity.none')}</p>}
     {rows.length<total&&<ShowMore left={total-rows.length} busy={busy} onClick={()=>load(true)}/>}</div></>}
 const day=d=>d?new Date(d).toLocaleDateString(undefined,{day:'numeric',month:'short'}):'never'
 const fetchFile=async(url,name,toast)=>{try{const r=await fetch('/api'+url,{headers:{Authorization:'Bearer '+localStorage.t}});if(!r.ok)throw new Error((await r.json().catch(()=>({}))).detail||'Download failed')
