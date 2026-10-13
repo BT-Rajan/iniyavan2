@@ -794,24 +794,24 @@ const PATTERN={semester:['Semesters','Semester',8,'pattern.semester'],
   year:['Years','Year',4,'pattern.year'],
   grade:['School grades','Grade',12,'pattern.grade']}
 
-const BULK_TEXT={disable:['Disable these accounts?','They can no longer sign in. Their progress and quiz results are kept, and you can enable them again.','Disable'],
-  enable:['Enable these accounts?','They can sign in again.','Enable'],reset_passwords:['Reset these passwords?','Each person gets a new one-time password and must choose their own at next sign-in. Anyone signed in is signed out. You download the list once; it is not shown again.','Reset passwords']}
+const BULK_TEXT={disable:['bulk.disable1','bulk.disableN','bulk.disableD','users.disable'],
+  enable:['bulk.enable1','bulk.enableN','bulk.enableD','users.enable'],reset_passwords:['bulk.reset1','bulk.resetN','bulk.resetD','bulk.resetL']}
 function BulkSheet({act,ids,progs,toast,close,done}){const {t:tr}=useI18n();
   const [p,setP]=useState(''),[s,setS]=useState(''),[busy,setBusy]=useState(false)
   if(act.kind==='result'){const r=act.r,cell=v=>'"'+String(v).replace(/"/g,'""')+'"'
-    return <Sheet close={close}><h3>{pl(r.changed,'account')} updated</h3>
-      {r.courses_needing_owner>0&&<p className="known">{pl(r.courses_needing_owner,'course')} now {r.courses_needing_owner===1?'has':'have'} no active owner. Assign new owners under Programs.</p>}
-      {r.skipped_count>0&&<div className="qbox"><b>{r.skipped_count} skipped</b>{r.skipped.slice(0,10).map(x=><p className="known" style={{margin:'4px 0'}} key={x.id}>{x.name}: {x.reason}</p>)}{r.skipped_count>10&&<p className="known">…and {r.skipped_count-10} more.</p>}</div>}
-      {r.credentials&&<button className="btn" onClick={()=>download('new-passwords.csv','name,email,password\n'+r.credentials.map(c=>[c.name,c.email,c.password].map(cell).join(',')).join('\n')+'\n')}>Download the new passwords</button>}
+    return <Sheet close={close}><h3>{tr('bulk.updated',{count:tr(r.changed===1?'users.oneAccount':'users.manyAccounts',{n:r.changed})})}</h3>
+      {r.courses_needing_owner>0&&<p className="known">{tr(r.courses_needing_owner===1?'bulk.coursesOne':'bulk.coursesMany',{n:r.courses_needing_owner})}</p>}
+      {r.skipped_count>0&&<div className="qbox"><b>{tr('bulk.skipped',{n:r.skipped_count})}</b>{r.skipped.slice(0,10).map(x=><p className="known" style={{margin:'4px 0'}} key={x.id}>{x.name}: {x.reason}</p>)}{r.skipped_count>10&&<p className="known">{tr('bulk.andMore',{n:r.skipped_count-10})}</p>}</div>}
+      {r.credentials&&<button className="btn" onClick={()=>download('new-passwords.csv','name,email,password\n'+r.credentials.map(c=>[c.name,c.email,c.password].map(cell).join(',')).join('\n')+'\n')}>{tr('bulk.downloadNew')}</button>}
       <button className="btn ghost" onClick={close}>{tr('common.close')}</button></Sheet>}
   const run=async()=>{setBusy(true);try{done(await api('/admin/users/bulk',{method:'POST',body:{ids,action:act.kind,...(act.kind==='set_placement'?{program_id:+p,semester:s?+s:null}:{})}}))}catch(e){toast(e.message);setBusy(false)}}
-  if(act.kind==='set_placement')return <Sheet close={close}><h3>Move {pl(ids.length,'user')}</h3><p className="known">Sets the program and semester, year or grade of the selected students. Faculty and admins in the selection are skipped.</p>
-    <label htmlFor="bp">Program</label><select id="bp" value={p} onChange={e=>{const id=e.target.value;setP(id);if(+s>semsOf(progs,id).length)setS('')}}><option value="">Choose a program</option>{progs.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select>
+  if(act.kind==='set_placement')return <Sheet close={close}><h3>{tr('bulk.moveTitle',{count:tr(ids.length===1?'users.oneUser':'users.manyUsers',{n:ids.length})})}</h3><p className="known">{tr('bulk.moveDesc')}</p>
+    <label htmlFor="bp">{tr('users.program')}</label><select id="bp" value={p} onChange={e=>{const id=e.target.value;setP(id);if(+s>semsOf(progs,id).length)setS('')}}><option value="">{tr('bulk.chooseProgram')}</option>{progs.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select>
     <label htmlFor="bs">{termOf(progs,p)}</label><select id="bs" value={s} onChange={e=>setS(e.target.value)}><option value="">{tr('users.notSet')}</option>{semsOf(progs,p).map(n=><option key={n} value={n}>{termOf(progs,p)} {n}</option>)}</select>
-    <button className="btn" disabled={busy||!p} onClick={run}>{busy?'Working…':'Move'}</button><button className="btn ghost" onClick={close}>Cancel</button></Sheet>
-  const [t,d,l]=BULK_TEXT[act.kind]
-  return <Sheet close={close}><h3>{t.replace('these',ids.length===1?'this':'these')}</h3><p className="known">{pl(ids.length,'account')} selected. {d}</p>
-    <button className={'btn'+(act.kind==='disable'?' danger':'')} disabled={busy} onClick={run}>{busy?'Working…':l}</button><button className="btn ghost" onClick={close}>Cancel</button></Sheet>}
+    <button className="btn" disabled={busy||!p} onClick={run}>{busy?tr('sheet.working'):tr('bulk.move')}</button><button className="btn ghost" onClick={close}>{tr('common.cancel')}</button></Sheet>
+  const [t1,tN,d,l]=BULK_TEXT[act.kind]
+  return <Sheet close={close}><h3>{tr(ids.length===1?t1:tN)}</h3><p className="known">{tr('bulk.selectedDesc',{count:tr(ids.length===1?'users.oneAccount':'users.manyAccounts',{n:ids.length}),desc:tr(d)})}</p>
+    <button className={'btn'+(act.kind==='disable'?' danger':'')} disabled={busy} onClick={run}>{busy?tr('sheet.working'):tr(l)}</button><button className="btn ghost" onClick={close}>{tr('common.cancel')}</button></Sheet>}
 function Users({toast,me}){const {t:tr}=useI18n();
   const [items,setItems]=useState([]),[total,setTotal]=useState(0),[q,setQ]=useState(''),[prog,setProg]=useState(''),[sem,setSem]=useState(''),[order,setOrder]=useState('role'),[progs,setProgs]=useState([])
   const [view,setView]=useState(null),[ed,setEd]=useState(null),[bulk,setBulk]=useState(null),fileRef=useRef(),[selMode,setSelMode]=useState(false),[sel,setSel]=useState([]),[act,setAct]=useState(null)
