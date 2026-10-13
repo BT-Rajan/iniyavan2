@@ -839,7 +839,7 @@ function Users({toast,me}){const {t:tr}=useI18n();
     {items.length<total&&<ShowMore left={total-items.length} onClick={more}/>}
     <input ref={fileRef} type="file" accept=".csv,.txt,text/csv" hidden onChange={pick}/></div>
     {selMode&&sel.length>0&&<div className="actbar" role="toolbar" aria-label={tr('users.actions')}><b>{tr('users.selected',{n:sel.length})}</b>
-      <button className="tool" onClick={()=>setAct({kind:'set_placement'})}>{tr('users.move')}</button><button className="tool" onClick={()=>setAct({kind:'disable'})}>{tr('users.disable')}</button><button className="tool" onClick={()=>setAct({kind:'enable'})}>{tr('users.enable')}</button><button className="tool" onClick={()=>setAct({kind:'reset_passwords'})}>Reset passwords</button></div>}
+      <button className="tool" onClick={()=>setAct({kind:'set_placement'})}>{tr('users.move')}</button><button className="tool" onClick={()=>setAct({kind:'disable'})}>{tr('users.disable')}</button><button className="tool" onClick={()=>setAct({kind:'enable'})}>{tr('users.enable')}</button><button className="tool" onClick={()=>setAct({kind:'reset_passwords'})}>{tr('bulk.resetL')}</button></div>}
     {act&&<BulkSheet act={act} ids={sel} progs={progs} toast={toast} close={()=>setAct(null)} done={r=>{setAct({kind:'result',r});setSel([]);load()}}/>}
     {ed&&<UserSheet u={ed} me={me} progs={progs} toast={toast} close={()=>setEd(null)} done={()=>{setEd(null);load()}}/>}
     {bulk&&<Sheet close={()=>setBulk(null)}>
