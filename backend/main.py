@@ -796,13 +796,13 @@ def bulk_users(b: BulkIn, a: User = Depends(admin), s: Session = Depends(db)):
     changed, skipped, creds = 0, [], []
     for i in ids:
         u = users.get(i)
-        if not u: skipped.append({"id": i, "name": f"#{i}", "reason": "No such user"}); continue
+        if not u: skipped.append({"id": i, "name": f"#{i}", "reason": "No such user", "reason_key": "bulkr.noUser"}); continue
         why = None
         if u.id == a.id and b.action in ("disable", "reset_passwords"): why = "That is your own account"
         elif b.action == "set_placement" and u.role != "student": why = "Only students have a program and semester"
         elif b.action == "disable" and not u.active: why = "Already disabled"
         elif b.action == "enable" and u.active: why = "Already enabled"
-        if why: skipped.append({"id": u.id, "name": u.name, "reason": why}); continue
+        if why: skipped.append({"id": u.id, "name": u.name, "reason": why, "reason_key": {"That is your own account": "bulkr.own", "Only students have a program and semester": "bulkr.onlyStudents", "Already disabled": "bulkr.alreadyOff", "Already enabled": "bulkr.alreadyOn"}.get(why)}); continue
         if b.action == "disable": u.active = False
         elif b.action == "enable": u.active = True
         elif b.action == "set_placement": u.program_id, u.semester = prog, sem
@@ -1070,35 +1070,40 @@ def overview_list(kind: str, q: str = "", order: str = "name", limit: int = 5, o
     if kind not in LIST_TITLES: raise HTTPException(404, "Unknown list")
     if kind in ADMIN_LISTS and u.role != "admin": raise HTTPException(403, "Admins only")
     mine = live_courses(u, s); pn = {p.id: p for p in s.query(Program)}; sems = {x.id: x for x in s.query(Semester)}; items = []
-    def person(x, extra=""):
+    def tp(text, key=None, **vars): return {"text": text, "key": key, "vars": vars} if key else {"text": text}
+    def owner_detail(c):
+        u2 = s.get(User, c.faculty_owner_id) if c.faculty_owner_id else None
+        if u2: return f"Owner: {u2.name}", [tp(f"Owner: {u2.name}", "lst.owner", name=u2.name)]
+        return "No owner", [tp("No owner", "lst.noOwner")]
+    def person(x, extra="", extra_parts=()):
         p = pn.get(x.program_id); t = term_label(p) if p else "Semester"
         place = (p.name + (f" · {t} {x.semester}" if x.semester else "")) if p else "No program"
-        return {"id": x.id, "title": x.name, "sub": x.email, "detail": place + extra, "sort": (x.name or "").lower(), "target": {"type": "user", "id": x.id}}
-    def course(c, extra=""):
+        return {"id": x.id, "title": x.name, "sub": x.email, "detail": place + extra, "detail_parts": [tp(place) if p else tp(place, "lst.noProgram"), *extra_parts], "sort": (x.name or "").lower(), "target": {"type": "user", "id": x.id}}
+    def course(c, extra="", parts=None):
         sm = sems.get(c.semester_id); p = pn.get(c.program_id)
-        return {"id": c.id, "title": c.name, "sub": " · ".join(x for x in [p.name if p else "", sm.name if sm else ""] if x), "detail": extra, "sort": (c.name or "").lower(),
+        return {"id": c.id, "title": c.name, "sub": " · ".join(x for x in [p.name if p else "", sm.name if sm else ""] if x), "detail": extra, "detail_parts": parts if parts is not None else [tp(extra)], "sort": (c.name or "").lower(),
                 "target": {"type": "course", "program_id": c.program_id, "semester_id": c.semester_id, "id": c.id}}
     stu = s.query(User).filter_by(role="student", active=True)
     if kind == "students": items = [person(x) for x in stu]
-    elif kind == "faculty": items = [{**person(x), "detail": "Active", "sub": x.email} for x in s.query(User).filter_by(role="faculty", active=True)]
+    elif kind == "faculty": items = [{**person(x), "detail": "Active", "detail_parts": [tp("Active", "lst.active")], "sub": x.email} for x in s.query(User).filter_by(role="faculty", active=True)]
     elif kind == "active_week":
         last = dict(s.query(Progress.user_id, func.max(Progress.last_read)).group_by(Progress.user_id).all()); week = dt.datetime.utcnow() - dt.timedelta(days=7)
-        items = [{**person(x, f" · last read {last[x.id]:%d %b %Y}"), "recent": last[x.id].isoformat()} for x in stu if last.get(x.id) and last[x.id] >= week]
+        items = [{**person(x, f" · last read {last[x.id]:%d %b %Y}", [tp(f"last read {last[x.id]:%d %b %Y}", "lst.lastRead", date=f"{last[x.id]:%d %b %Y}")]), "recent": last[x.id].isoformat()} for x in stu if last.get(x.id) and last[x.id] >= week]
     elif kind == "unenrolled": items = [person(x) for x in stu.filter(or_(User.program_id.is_(None), User.semester.is_(None)))]
     elif kind == "never_opened": items = [person(x) for x in stu.filter(User.id.notin_(s.query(Progress.user_id)))]
-    elif kind == "courses": items = [course(c, f"Owner: {u2.name}" if (u2 := s.get(User, c.faculty_owner_id) if c.faculty_owner_id else None) else "No owner") for c in mine]
-    elif kind == "unowned": items = [course(c, "No owner") for c in mine if c.faculty_owner_id is None]
-    elif kind == "empty_courses": items = [course(c, "No units yet") for c in mine if not live_units(s, [c.id]).first()]
+    elif kind == "courses": items = [course(c, *owner_detail(c)) for c in mine]
+    elif kind == "unowned": items = [course(c, "No owner", [tp("No owner", "lst.noOwner")]) for c in mine if c.faculty_owner_id is None]
+    elif kind == "empty_courses": items = [course(c, "No units yet", [tp("No units yet", "lst.noUnits")]) for c in mine if not live_units(s, [c.id]).first()]
     elif kind == "semester_numbers":
         for x in s.query(Semester).filter(Semester.semester_no.is_(None)):
-            p = pn.get(x.program_id); items.append({"id": x.id, "title": x.name, "sub": p.name if p else "", "detail": "No number set", "sort": (x.name or "").lower(), "target": {"type": "program", "id": x.program_id}})
+            p = pn.get(x.program_id); items.append({"id": x.id, "title": x.name, "sub": p.name if p else "", "detail": "No number set", "detail_parts": [tp("No number set", "lst.noNumber")], "sort": (x.name or "").lower(), "target": {"type": "program", "id": x.program_id}})
     else:  # topics, drafts
         cids = [c.id for c in mine]; cn = {c.id: c for c in mine}; un = {x.id: x for x in s.query(Unit).filter(Unit.course_id.in_(cids or [0]), Unit.archived_at.is_(None))}
         tq = s.query(Topic).filter(Topic.unit_id.in_(list(un) or [0]), Topic.archived_at.is_(None))
         if kind == "drafts": tq = tq.filter(Topic.published == False)  # noqa: E712
         for t in tq:
             un_ = un.get(t.unit_id); c = cn.get(un_.course_id) if un_ else None
-            items.append({"id": t.id, "title": t.title, "sub": " › ".join(x for x in [c.name if c else "", un_.name if un_ else ""] if x), "detail": "Published" if t.published else "Draft",
+            items.append({"id": t.id, "title": t.title, "sub": " › ".join(x for x in [c.name if c else "", un_.name if un_ else ""] if x), "detail": "Published" if t.published else "Draft", "detail_parts": [tp("Published", "lst.published") if t.published else tp("Draft", "lst.draft")],
                           "sort": (t.title or "").lower(), "target": {"type": "topic", "id": t.id}})
     if q.strip():
         needle = q.strip().lower(); items = [i for i in items if needle in " ".join([i["title"] or "", i["sub"] or "", i["detail"] or ""]).lower()]
@@ -1108,7 +1113,7 @@ def overview_list(kind: str, q: str = "", order: str = "name", limit: int = 5, o
     elif order == "newest": items.sort(key=lambda i: i["id"], reverse=True)
     else: items.sort(key=lambda i: (i["sort"], i["id"]))
     limit = min(max(limit, 1), 50); offset = max(offset, 0)
-    return {"kind": kind, "title": LIST_TITLES[kind], "total": len(items), "items": [{k: v for k, v in i.items() if k not in ("sort", "recent")} for i in items[offset:offset + limit]],
+    return {"kind": kind, "title": LIST_TITLES[kind], "title_key": "lst." + kind, "total": len(items), "items": [{k: v for k, v in i.items() if k not in ("sort", "recent")} for i in items[offset:offset + limit]],
             "can_recent": any("recent" in i for i in items)}
 # ---- content: admin writes, everyone reads ----
 @app.get("/api/overview")
@@ -1118,23 +1123,23 @@ def overview(u: User = Depends(staff), s: Session = Depends(db)):  # what needs 
     topics = s.query(Topic).filter(Topic.unit_id.in_(units), Topic.archived_at.is_(None))
     drafts = topics.filter(Topic.published == False).count()  # noqa: E712
     out = {"role": u.role, "courses": len(cids), "topics": topics.count(), "drafts": drafts, "attention": []}
-    add = lambda kind, n, text: n and out["attention"].append({"kind": kind, "count": n, "text": text})
-    add("drafts", drafts, f"{drafts} draft topic{'s' if drafts != 1 else ''} not yet visible to students")
+    add = lambda kind, c, text, key, **vars: c and out["attention"].append({"kind": kind, "count": c, "text": text, "key": key, "vars": vars})
+    add("drafts", drafts, f"{drafts} draft topic{'s' if drafts != 1 else ''} not yet visible to students", "attn.draftOne" if drafts == 1 else "attn.draftMany", n=drafts)
     empty = [c for c in mine if not live_units(s, [c.id]).first()]
-    add("empty_courses", len(empty), f"{len(empty)} course{'s have' if len(empty) != 1 else ' has'} no units yet: " + ", ".join(c.name for c in empty[:5]))
+    add("empty_courses", len(empty), f"{len(empty)} course{'s have' if len(empty) != 1 else ' has'} no units yet: " + ", ".join(c.name for c in empty[:5]), "attn.emptyOne" if len(empty) == 1 else "attn.emptyMany", n=len(empty), names=", ".join(c.name for c in empty[:5]))
     if u.role == "admin":
         stu = s.query(User).filter_by(role="student", active=True)
         out["people"] = {"students": stu.count(), "faculty": s.query(User).filter_by(role="faculty", active=True).count(),
                          "active_week": s.query(func.count(func.distinct(Progress.user_id))).join(User, User.id == Progress.user_id).filter(User.role == "student", Progress.last_read >= week).scalar()}
         out["programs"] = s.query(Program).count()
         noown = [c for c in mine if c.faculty_owner_id is None]
-        add("unowned", len(noown), f"{len(noown)} course{'s have' if len(noown) != 1 else ' has'} no owner, so only admins can edit: " + ", ".join(c.name for c in noown[:5]))
+        add("unowned", len(noown), f"{len(noown)} course{'s have' if len(noown) != 1 else ' has'} no owner, so only admins can edit: " + ", ".join(c.name for c in noown[:5]), "attn.unownedOne" if len(noown) == 1 else "attn.unownedMany", n=len(noown), names=", ".join(c.name for c in noown[:5]))
         unplaced = stu.filter(or_(User.program_id.is_(None), User.semester.is_(None))).count()
-        add("unenrolled", unplaced, f"{unplaced} active student{'s are' if unplaced != 1 else ' is'} not placed in a program and semester or year, so they see nothing")
+        add("unenrolled", unplaced, f"{unplaced} active student{'s are' if unplaced != 1 else ' is'} not placed in a program and semester or year, so they see nothing", "attn.unenrolledOne" if unplaced == 1 else "attn.unenrolledMany", n=unplaced)
         nonum = s.query(Semester).filter(Semester.semester_no.is_(None)).count()
-        add("semester_numbers", nonum, f"{nonum} semester{'s have' if nonum != 1 else ' has'} no semester number (set it under Programs)")
+        add("semester_numbers", nonum, f"{nonum} semester{'s have' if nonum != 1 else ' has'} no semester number (set it under Programs)", "attn.semNumOne" if nonum == 1 else "attn.semNumMany", n=nonum)
         quiet = stu.filter(User.id.notin_(s.query(Progress.user_id))).count()
-        add("never_opened", quiet, f"{quiet} active student{'s have' if quiet != 1 else ' has'} never opened a topic")
+        add("never_opened", quiet, f"{quiet} active student{'s have' if quiet != 1 else ' has'} never opened a topic", "attn.neverOne" if quiet == 1 else "attn.neverMany", n=quiet)
     return out
 class RolloverIn(BaseModel): dry_run: bool = True; finishing: str = "keep"  # keep: leave the last semester's students where they are; deactivate: switch their accounts off
 @app.post("/api/admin/programs/{pid}/rollover")
@@ -2143,10 +2148,18 @@ def streak_of(days, today):
     n = 0
     while d in days: n += 1; d -= dt.timedelta(days=1)
     return n
-def due_phrase(due, now):  # in the student's own calendar days, so "tomorrow" means tomorrow
+def due_part(due, now):  # in the student's own calendar days, so "tomorrow" means tomorrow; text is the English fallback, key/vars let the app translate it
     n = (local_day(due) - local_day(now)).days
-    if due < now: return f"Overdue by {-n} day{'s' if n != -1 else ''}" if n < 0 else "Overdue since earlier today"
-    return "Due today" if n == 0 else "Due tomorrow" if n == 1 else f"Due in {n} days"
+    if due < now:
+        if n < 0: return {"text": f"Overdue by {-n} day{'s' if n != -1 else ''}", "key": "focus.overdueOne" if n == -1 else "focus.overdueMany", "vars": {"n": -n}}
+        return {"text": "Overdue since earlier today", "key": "focus.overdueToday", "vars": {}}
+    if n == 0: return {"text": "Due today", "key": "focus.dueToday", "vars": {}}
+    if n == 1: return {"text": "Due tomorrow", "key": "focus.dueTomorrow", "vars": {}}
+    return {"text": f"Due in {n} days", "key": "focus.dueIn", "vars": {"n": n}}
+def due_phrase(due, now): return due_part(due, now)["text"]
+def due_fields(due, now):
+    d = due_part(due, now)
+    return {"reason": d["text"], "reason_key": d["key"], "reason_vars": d["vars"]}
 @app.get("/api/me/today")
 def my_today(u: User = Depends(me), s: Session = Depends(db)):
     now = dt.datetime.utcnow(); today = local_day(now); since = today - dt.timedelta(days=400)
@@ -2167,27 +2180,27 @@ def my_today(u: User = Depends(me), s: Session = Depends(db)):
             if not q["published"] or not q["questions"]: continue
             base = {"course": c["name"], "unit": "", "nav": [p["id"], sm["id"], c["id"]]}
             if q["best"] is not None: bests.append(q["best"])
-            if q["best"] is None: offer(40, ("q", q["id"]), {**base, "kind": "quiz_new", "title": q["title"], "reason": f"Test not tried yet · {q['questions']} questions", "quiz_id": q["id"]})
-            elif q["best"] < q["pass_percent"]: offer(45, ("q", q["id"]), {**base, "kind": "quiz_retake", "title": q["title"], "reason": f"Best so far {q['best']}%, pass mark {q['pass_percent']}%", "quiz_id": q["id"]})
+            if q["best"] is None: offer(40, ("q", q["id"]), {**base, "kind": "quiz_new", "title": q["title"], "reason": f"Test not tried yet · {q['questions']} questions", "reason_key": "focus.testNew", "reason_vars": {"n": q["questions"]}, "quiz_id": q["id"]})
+            elif q["best"] < q["pass_percent"]: offer(45, ("q", q["id"]), {**base, "kind": "quiz_retake", "title": q["title"], "reason": f"Best so far {q['best']}%, pass mark {q['pass_percent']}%", "reason_key": "focus.bestSoFar", "reason_vars": {"best": q["best"], "pass": q["pass_percent"]}, "quiz_id": q["id"]})
         for un in c["units"]:
             nav = [p["id"], sm["id"], c["id"], un["id"]]; base = {"course": c["name"], "unit": un["name"], "nav": nav}
             for q in un["quizzes"]:
                 if not q["published"] or not q["questions"]: continue
                 if q["best"] is not None: bests.append(q["best"])
-                if q["best"] is None: offer(40, ("q", q["id"]), {**base, "kind": "quiz_new", "title": q["title"], "reason": f"Quiz not tried yet · {q['questions']} questions", "quiz_id": q["id"]})
-                elif q["best"] < q["pass_percent"]: offer(45, ("q", q["id"]), {**base, "kind": "quiz_retake", "title": q["title"], "reason": f"Best so far {q['best']}%, pass mark {q['pass_percent']}%", "quiz_id": q["id"]})
+                if q["best"] is None: offer(40, ("q", q["id"]), {**base, "kind": "quiz_new", "title": q["title"], "reason": f"Quiz not tried yet · {q['questions']} questions", "reason_key": "focus.quizNew", "reason_vars": {"n": q["questions"]}, "quiz_id": q["id"]})
+                elif q["best"] < q["pass_percent"]: offer(45, ("q", q["id"]), {**base, "kind": "quiz_retake", "title": q["title"], "reason": f"Best so far {q['best']}%, pass mark {q['pass_percent']}%", "reason_key": "focus.bestSoFar", "reason_vars": {"best": q["best"], "pass": q["pass_percent"]}, "quiz_id": q["id"]})
             for t in un["topics"]:
                 topics_total += 1; topics_done += t["status"] == "completed"
                 if t["status"] == "completed": continue
                 it = {**base, "title": t["title"], "topic_id": t["id"]}
                 if t["learning_due_at"]:
                     due = dt.datetime.fromisoformat(t["learning_due_at"].replace("Z", "")); n = (local_day(due) - local_day(now)).days
-                    if t["overdue"]: offer(100 + min(30, max(0, -n)), ("t", t["id"]), {**it, "kind": "overdue", "reason": due_phrase(due, now)})
-                    elif n <= 3: offer(80 - n, ("t", t["id"]), {**it, "kind": "due_soon", "reason": due_phrase(due, now)})
-                if t["id"] in weak: offer(60 + (60 - weak[t["id"]]["percent"]) / 10, ("t", t["id"]), {**it, "kind": "weak", "reason": f"You scored {weak[t['id']]['percent']}% on questions about this"})
-                if t["status"] == "in_progress": offer(50, ("t", t["id"]), {**it, "kind": "resume", "reason": "You started this. Pick up where you left off", "last_read": t["last_read"]})
+                    if t["overdue"]: offer(100 + min(30, max(0, -n)), ("t", t["id"]), {**it, "kind": "overdue", **due_fields(due, now)})
+                    elif n <= 3: offer(80 - n, ("t", t["id"]), {**it, "kind": "due_soon", **due_fields(due, now)})
+                if t["id"] in weak: offer(60 + (60 - weak[t["id"]]["percent"]) / 10, ("t", t["id"]), {**it, "kind": "weak", "reason": f"You scored {weak[t['id']]['percent']}% on questions about this", "reason_key": "focus.weakScore", "reason_vars": {"pct": weak[t["id"]]["percent"]}})
+                if t["status"] == "in_progress": offer(50, ("t", t["id"]), {**it, "kind": "resume", "reason": "You started this. Pick up where you left off", "reason_key": "focus.resume", "last_read": t["last_read"]})
                 elif first_new is None: first_new = (t, it)
-        if first_new: offer(30, ("t", first_new[0]["id"]), {**first_new[1], "kind": "next", "reason": "Start the next topic"})
+        if first_new: offer(30, ("t", first_new[0]["id"]), {**first_new[1], "kind": "next", "reason": "Start the next topic", "reason_key": "focus.next"})
     focus = [i for _, i in sorted(cand.values(), key=lambda x: (-x[0], x[1].get("last_read") or ""))][:4]
     for i in focus: i.pop("last_read", None)
     in7 = [d for d in days if d > today - dt.timedelta(days=7)]

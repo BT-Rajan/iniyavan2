@@ -315,7 +315,7 @@ function ResultSet({kind,user,back,toast,open}){const {t:tr}=useI18n();  // the 
     if(t.type==='topic')return <Topic id={t.id} back={shut} toast={toast} role={user.role}/>
     if(t.type==='course'&&kind==='courses'){const [p='',sm='']=(view.sub||'').split(' · ');return <StudentReport c={{course_id:t.id,course:view.title,program:p,semester:sm}} back={shut} toast={toast}/>}
     open(t.type==='program'?[t.id]:[t.program_id,t.semester_id,t.id].filter(x=>x!=null));return null}
-  const total=d?.total??0,pages=Math.max(1,Math.ceil(total/RS_PAGE)),title=d?.title||tr('common.loading')
+  const total=d?.total??0,pages=Math.max(1,Math.ceil(total/RS_PAGE)),title=(d?.title_key?tr(d.title_key):d?.title)||tr('common.loading')
   return <><Bar title={title} sub={d?(q?tr(total===1?'rs.matchOne':'rs.matchMany',{n:total}):tr('rs.inTotal',{n:total})):''} back={back}/><div className="main">
     <div className="search"><Search size={18}/><input type="search" aria-label={tr('rs.searchAria',{title:title.toLowerCase()})} placeholder={tr('common.search')} value={q} onChange={e=>setQ(e.target.value)}/></div>
     <div className="qopt"><select aria-label={tr('rs.sortBy')} value={order} onChange={e=>setOrder(e.target.value)}><option value="name">{tr('rs.sortName')}</option><option value="name_desc">{tr('rs.sortNameDesc')}</option><option value="detail">{tr('rs.sortDetail')}</option><option value="newest">{tr('rs.sortNewest')}</option>{d?.can_recent&&<option value="recent">{tr('rs.sortRecent')}</option>}</select></div>
@@ -323,7 +323,7 @@ function ResultSet({kind,user,back,toast,open}){const {t:tr}=useI18n();  // the 
     {d&&d.items.length>0&&<div className="uhead" aria-hidden="true"><span>{tr('rs.name')}</span><span>{tr('rs.details')}</span><span/></div>}
     {d?.items.map(x=><button key={x.id} className="utr" onClick={()=>setView(x)} aria-label={tr('rs.open',{title:x.title})}>
       <span className="nm"><span className="dot" style={{background:COL[x.id%5]}}>{(x.title||'?')[0]}</span><span className="tx"><b>{x.title}</b><small className="sub">{x.sub}</small></span></span>
-      <span className="pg">{x.detail||'—'}</span><span className="sn"><ChevronRight size={16}/></span></button>)}
+      <span className="pg">{x.detail_parts?x.detail_parts.map(p=>p.key?tr(p.key,p.vars):p.text).join(' · '):(x.detail||'—')}</span><span className="sn"><ChevronRight size={16}/></span></button>)}
     {d&&!d.items.length&&<p className="known">{q?tr('rs.noMatch'):tr('rs.empty')}</p>}
     {d&&total>RS_PAGE&&<nav className="pager" aria-label={tr('rs.pages')}><button className="btn ghost" disabled={page===0} onClick={()=>setPage(page-1)}><ChevronLeft size={18}/><span>{tr('rs.previous')}</span></button><small>{tr('rs.page',{p:page+1,n:pages})}</small><button className="btn ghost" disabled={page+1>=pages} onClick={()=>setPage(page+1)}><span>{tr('home.next')}</span><ChevronRight size={18}/></button></nav>}
   </div></>}
@@ -338,11 +338,12 @@ function StaffHome({user,toast,open}){const {t:tr}=useI18n();
     {!o&&<><div className="sk"/><div className="sk"/><div className="sk"/></>}
     {o&&<div className="stats">{stats.map(([n,l,k])=><button className="stat" key={l} style={{textAlign:'left',width:'100%'}} onClick={()=>setList(k)} aria-label={tr('home.showListAria',{n:(n??0).toLocaleString(),l})}><b>{(n??0).toLocaleString()}</b>{l}</button>)}</div>}
     {o&&<><h3 className="sec">{tr('home.attention')}</h3>
-      {o.attention.length?o.attention.map(x=><button key={x.kind} className="card" style={{textAlign:'left'}} onClick={()=>setList(ATTN_GO[x.kind]||'drafts')}><div style={{flex:1}}><b>{x.text}</b></div><ChevronRight size={18}/></button>)
+      {o.attention.length?o.attention.map(x=><button key={x.kind} className="card" style={{textAlign:'left'}} onClick={()=>setList(ATTN_GO[x.kind]||'drafts')}><div style={{flex:1}}><b>{x.key?tr(x.key,x.vars):x.text}</b></div><ChevronRight size={18}/></button>)
         :<p className="known">{tr('home.nothingAttention')}</p>}</>}
     {o&&!o.courses&&!admin&&<p className="known">{tr('home.notAssigned')}</p>}
     {o?.courses>0&&<><h3 className="sec">{admin?tr('home.courses'):tr('home.yourCourses')}</h3><CourseReports toast={toast} onOpen={setRep}/></>}
   </div></>}
+const reasonOf=(tr,x)=>x.reason_key?tr(x.reason_key,x.reason_vars):x.reason
 const FOCUS={overdue:[AlertTriangle,'focus.overdue','focus.openIt'],due_soon:[Clock,'focus.dueSoon','focus.openIt'],weak:[Target,'focus.needsReview','focus.review'],resume:[Play,'focus.continue','focus.continue'],quiz_retake:[RotateCcw,'focus.retakeQuiz','focus.retake'],quiz_new:[ClipboardList,'focus.quiz','focus.takeQuiz'],next:[ArrowRight,'focus.nextUp','focus.start']}
 function Dashboard({user,toast,onOpen,onSearch}){const {t:tr}=useI18n();
   const [tree,setTree]=useState(null),[ins,setIns]=useState(null),[today,setToday]=useState(null),[planErr,setPlanErr]=useState(''),[topic,setTopic]=useState(null)
@@ -369,9 +370,9 @@ function Dashboard({user,toast,onOpen,onSearch}){const {t:tr}=useI18n();
       <div className="stat"><b>{today.quiz_average==null?'–':today.quiz_average+'%'}</b>{tr('home.quizAvg')}<small>{today.quiz_average==null?tr('home.noQuizzes'):tr('home.bestScores')}</small></div></div>
       <div className="week" role="img" aria-label={tr('home.weekAria',{n:today.week.filter(d=>d.active).length})}>{today.week.map(d=><span key={d.date} className={'wd'+(d.active?' on':'')+(d.today?' now':'')}><i>{d.active&&<Check size={13}/>}</i><small>{d.label}</small></span>)}</div></>}
     {top&&<><h3 className="sec first">{tr('home.focus')}</h3>
-      <div className="hero"><small>{top.kind==='overdue'||top.kind==='due_soon'?top.reason:tr(FOCUS[top.kind][1])+' · '+top.reason}</small><h2 style={{fontSize:24}}>{top.title}</h2><p>{top.course} · {top.unit}</p>
+      <div className="hero"><small>{top.kind==='overdue'||top.kind==='due_soon'?reasonOf(tr,top):tr(FOCUS[top.kind][1])+' · '+reasonOf(tr,top)}</small><h2 style={{fontSize:24}}>{top.title}</h2><p>{top.course} · {top.unit}</p>
         <button className="btn inv" style={{marginTop:14}} onClick={()=>act(top)}>{tr(FOCUS[top.kind][2])}</button></div>
-      {focus.slice(1).map((f,i)=>{const [I,,go]=FOCUS[f.kind];return <button key={i} className="frow" onClick={()=>act(f)}><span className={'fic '+f.kind}><I size={18}/></span><span className="ftx"><b>{f.title}</b><small>{f.reason} · {f.course}</small></span><span className="fgo">{tr(go)}</span></button>})}</>}
+      {focus.slice(1).map((f,i)=>{const [I,,go]=FOCUS[f.kind];return <button key={i} className="frow" onClick={()=>act(f)}><span className={'fic '+f.kind}><I size={18}/></span><span className="ftx"><b>{f.title}</b><small>{reasonOf(tr,f)} · {f.course}</small></span><span className="fgo">{tr(go)}</span></button>})}</>}
     {today&&courses.length>0&&!focus.length&&<div className="qbox" style={{marginTop:6}}><b>{tr('home.caughtUp')}</b><p className="known" style={{margin:'6px 0 0'}}>{tr('home.caughtUpHint')}</p></div>}
     {courses.length>0&&<><h3 className="sec">{tr('home.myCourses')}</h3>{courses.map(({p,s,c,topics},i)=>{const done=topics.filter(t=>t.status==='completed').length,pc=topics.length?Math.round(100*done/topics.length):0,late=topics.filter(t=>t.overdue).length,next=topics.find(t=>t.status==='in_progress')||topics.find(t=>t.status==='not_started')
       if(c.archived)return <div key={c.id} className="card" style={{opacity:.7}}><button className="hit" onClick={()=>toast(tr('home.unavailableToast'))} aria-label={c.name+', '+tr('home.unavailable')}><span className="dot" style={{background:'var(--mut)'}}><Lock size={18}/></span><div><b>{c.name}</b><span>{tr('home.unavailable')}</span></div></button></div>
@@ -798,7 +799,7 @@ function BulkSheet({act,ids,progs,toast,close,done}){const {t:tr}=useI18n();
   if(act.kind==='result'){const r=act.r,cell=v=>'"'+String(v).replace(/"/g,'""')+'"'
     return <Sheet close={close}><h3>{tr('bulk.updated',{count:tr(r.changed===1?'users.oneAccount':'users.manyAccounts',{n:r.changed})})}</h3>
       {r.courses_needing_owner>0&&<p className="known">{tr(r.courses_needing_owner===1?'bulk.coursesOne':'bulk.coursesMany',{n:r.courses_needing_owner})}</p>}
-      {r.skipped_count>0&&<div className="qbox"><b>{tr('bulk.skipped',{n:r.skipped_count})}</b>{r.skipped.slice(0,10).map(x=><p className="known" style={{margin:'4px 0'}} key={x.id}>{x.name}: {x.reason}</p>)}{r.skipped_count>10&&<p className="known">{tr('bulk.andMore',{n:r.skipped_count-10})}</p>}</div>}
+      {r.skipped_count>0&&<div className="qbox"><b>{tr('bulk.skipped',{n:r.skipped_count})}</b>{r.skipped.slice(0,10).map(x=><p className="known" style={{margin:'4px 0'}} key={x.id}>{x.name}: {x.reason_key?tr(x.reason_key):x.reason}</p>)}{r.skipped_count>10&&<p className="known">{tr('bulk.andMore',{n:r.skipped_count-10})}</p>}</div>}
       {r.credentials&&<button className="btn" onClick={()=>download('new-passwords.csv','name,email,password\n'+r.credentials.map(c=>[c.name,c.email,c.password].map(cell).join(',')).join('\n')+'\n')}>{tr('bulk.downloadNew')}</button>}
       <button className="btn ghost" onClick={close}>{tr('common.close')}</button></Sheet>}
   const run=async()=>{setBusy(true);try{done(await api('/admin/users/bulk',{method:'POST',body:{ids,action:act.kind,...(act.kind==='set_placement'?{program_id:+p,semester:s?+s:null}:{})}}))}catch(e){toast(e.message);setBusy(false)}}

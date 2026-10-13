@@ -51,7 +51,7 @@ def test_bulk_actions_apply_to_many_users_and_skip_what_cannot_apply(env):
     assert r["changed"] == 3 and r["skipped"][0]["reason"].startswith("Only students")
     assert bulk(ids=ids, action="set_placement").status_code == 400 and bulk(ids=ids, action="set_placement", program_id=999).status_code == 400
     r = bulk(ids=ids[:2] + [uid("admin@x.com")], action="disable").json()  # never yourself
-    assert r["changed"] == 2 and r["skipped"] == [{"id": uid("admin@x.com"), "name": "admin@x.com", "reason": "That is your own account"}]
+    assert r["changed"] == 2 and r["skipped"] == [{"id": uid("admin@x.com"), "name": "admin@x.com", "reason": "That is your own account", "reason_key": "bulkr.own"}]
     assert not user("a@x.com").active and user("c@x.com").active
     assert env.c.post("/api/login", json={"email": "a@x.com", "password": "pw"}).status_code in (401, 403)
     r = bulk(ids=ids, action="enable").json(); assert r["changed"] == 2 and r["skipped_count"] == 1  # c was never off
