@@ -430,52 +430,52 @@ function ImgSlot({url,need,label,onSet,toast,small}){
 const QImg=({src,alt})=>src?<img className="qimg" src={src} alt={alt} loading="lazy"/>:null
 const OptBody=({text,img,k})=><span className="obody">{img&&<img src={img} alt={'Answer '+LET[k]}/>}{text?<Md>{text}</Md>:!img&&<span>—</span>}</span>
 const LET='ABCDEF'
-function QuizPlay({id,back,toast,role}){
+function QuizPlay({id,back,toast,role}){const {t:tr}=useI18n();
   const [q,setQ]=useState(null),[ans,setAns]=useState([]),[res,setRes]=useState(null),[busy,setBusy]=useState(false),[topic,setTopic]=useState(null),[view,setView]=useState(null)
   const start=d=>{setQ(d);setAns(d.questions.map(()=>null));setRes(null)}
   useEffect(()=>{api('/quizzes/'+id).then(start).catch(e=>{toast(e.message);back()})},[id])
   if(topic)return <Topic id={topic} back={()=>setTopic(null)} toast={toast} role={role}/>
   if(view)return view.kind==='attempt'?<AttemptView id={view.id} back={()=>setView(null)} toast={toast} role={role}/>:view.kind==='mine'?<MyAttempts quiz={id} back={()=>setView(null)} toast={toast} role={role}/>:<QuizResults id={id} back={()=>setView(null)} toast={toast} role={role}/>
-  if(!q)return <><Bar title="Quiz" back={back}/><div className="main"><Skeleton/></div></>
+  if(!q)return <><Bar title={tr('quiz.title')} back={back}/><div className="main"><Skeleton/></div></>
   const left=ans.filter(a=>a===null).length
   const submit=async()=>{setBusy(true);try{setRes(await api(`/quizzes/${id}/attempt`,{method:'POST',body:{answers:ans}}));window.scrollTo(0,0)}catch(e){toast(e.message)}setBusy(false)}
-  return <><Bar title={q.title} sub={q.questions.length+' questions · pass mark '+q.pass_percent+'%'+(q.kind==='course'?' · course test':'')} back={back}/><div className="main">
-    {!res&&q.can_edit&&<button className="btn ghost" style={{marginTop:0}} onClick={()=>setView({kind:'results'})}><BarChart3 size={16}/> Results and scores</button>}
-    {!res&&q.attempts>0&&<p className="known" style={{marginTop:0}}>You have tried this {pl(q.attempts,'time')}. Best {q.best}% · latest {q.latest}%. <button className="tool" onClick={()=>setView({kind:'mine'})}>See your attempts</button></p>}
-    {res&&<div className="qbox"><h2 style={{margin:0}}>{res.score} / {res.total} · {res.percent}%</h2><p className="known">{res.passed?'Passed. Well done!':'Not there yet. Go back over the topics and try again.'}{res.summary&&' '+res.summary}</p>
-      <div className="two"><button className="btn" onClick={()=>setView({kind:'attempt',id:res.attempt_id})}>Review answers</button><button className="btn ghost" onClick={()=>start(q)}>Try again</button></div><button className="btn ghost" onClick={back}>Back</button></div>}
-    {res&&res.areas?.length>0&&<><h3 className="sec">What you are good at and what to revisit</h3><AreaList areas={res.areas} onStudy={setTopic}/></>}
-    {q.questions.map((x,i)=><div className="qbox" key={x.id}><b>Question {i+1}</b><div className="prose"><Md>{x.text}</Md></div><QImg src={x.image} alt={'Picture for question '+(i+1)}/>
+  return <><Bar title={q.title} sub={tr('quiz.subPass',{n:q.questions.length,pct:q.pass_percent})+(q.kind==='course'?' · '+tr('quiz.courseTest'):'')} back={back}/><div className="main">
+    {!res&&q.can_edit&&<button className="btn ghost" style={{marginTop:0}} onClick={()=>setView({kind:'results'})}><BarChart3 size={16}/> {tr('quiz.results')}</button>}
+    {!res&&q.attempts>0&&<p className="known" style={{marginTop:0}}>{tr('quiz.tried',{count:tr(q.attempts===1?'quiz.timeOne':'quiz.timeMany',{n:q.attempts}),best:q.best,latest:q.latest})} <button className="tool" onClick={()=>setView({kind:'mine'})}>{tr('quiz.seeAttempts')}</button></p>}
+    {res&&<div className="qbox"><h2 style={{margin:0}}>{res.score} / {res.total} · {res.percent}%</h2><p className="known">{res.passed?tr('quiz.passed'):tr('quiz.notYet')}{res.summary&&' '+res.summary}</p>
+      <div className="two"><button className="btn" onClick={()=>setView({kind:'attempt',id:res.attempt_id})}>{tr('quiz.review')}</button><button className="btn ghost" onClick={()=>start(q)}>{tr('quiz.retry')}</button></div><button className="btn ghost" onClick={back}>{tr('common.back')}</button></div>}
+    {res&&res.areas?.length>0&&<><h3 className="sec">{tr('quiz.revisit')}</h3><AreaList areas={res.areas} onStudy={setTopic}/></>}
+    {q.questions.map((x,i)=><div className="qbox" key={x.id}><b>{tr('quiz.question',{n:i+1})}</b><div className="prose"><Md>{x.text}</Md></div><QImg src={x.image} alt={tr('quiz.pictureQ',{n:i+1})}/>
       {x.options.map((o,k)=>{const r=res&&res.results[i],cls=r?(k===r.correct||(r.ok&&k===r.chosen)?' ok':k===r.chosen?' bad':''):ans[i]===k?' sel':''
         return <button key={k} className={'opt'+cls} disabled={!!res} aria-pressed={!res&&ans[i]===k} onClick={()=>setAns(ans.map((a,n)=>n===i?k:a))}><b className="olet">{LET[k]}</b><OptBody text={o} img={x.option_images[k]} k={k}/></button>})}
       {res&&res.results[i].explanation&&<div className="known"><Md>{res.results[i].explanation}</Md></div>}</div>)}
-    {!res&&<button className="btn" disabled={busy} onClick={submit}>{busy?'Checking…':'Submit answers'}</button>}
-    {!res&&left>0&&<p className="known">{left} unanswered. Blank answers count as wrong.</p>}</div></>}
+    {!res&&<button className="btn" disabled={busy} onClick={submit}>{busy?tr('quiz.checking'):tr('quiz.submit')}</button>}
+    {!res&&left>0&&<p className="known">{tr('quiz.unanswered',{n:left})}</p>}</div></>}
 // one attempt, question by question
-function AttemptView({id,back,toast,role}){
+function AttemptView({id,back,toast,role}){const {t:tr}=useI18n();
   const [d,setD]=useState(null),[topic,setTopic]=useState(null)
   useEffect(()=>{api('/attempts/'+id).then(setD).catch(e=>{toast(e.message);back()})},[id])
   if(topic)return <Topic id={topic} back={()=>setTopic(null)} toast={toast} role={role}/>
-  if(!d)return <><Bar title="Attempt" back={back}/><div className="main"><Skeleton/></div></>
+  if(!d)return <><Bar title={tr('quiz.attempt')} back={back}/><div className="main"><Skeleton/></div></>
   const staff=role!=='student',right=d.questions.filter(x=>x.ok).length
   return <><Bar title={d.quiz} sub={(staff?d.user+' · ':'')+when(d.at)} back={back}/><div className="main">
-    <div className="qbox" style={{marginTop:0}}><h2 style={{margin:0}}>{d.score} / {d.total} · {d.percent}%</h2><p className="known" style={{marginBottom:0}}>{d.passed?'Passed':'Below the pass mark'} of {d.pass_percent}%.{d.summary&&' '+d.summary}</p></div>
-    {d.areas.length>0&&<><h3 className="sec">{staff?'Strengths and weak areas':'What you are good at and what to revisit'}</h3><AreaList areas={d.areas} onStudy={staff?null:setTopic} staff={staff}/></>}
-    {d.no_detail&&<p className="known">This attempt was made before answers were kept question by question, so only the score is known.</p>}
-    {d.changed>0&&<p className="known">{pl(d.changed,'question')} of this attempt {d.changed===1?'was':'were'} changed or removed since, so {d.changed===1?'it is':'they are'} not shown.</p>}
-    {!d.reveal&&d.questions.length>0&&<p className="known">You see which answers were right ({right} of {d.questions.length}). This quiz does not show the correct answers.</p>}
-    {d.questions.map((x,i)=><div className="qbox" key={x.id}><b>Question {i+1} · {x.ok?'Right':'Wrong'}{x.area?' · '+x.area:''}</b><div className="prose"><Md>{x.text}</Md></div><QImg src={x.image} alt={'Picture for question '+(i+1)}/>
+    <div className="qbox" style={{marginTop:0}}><h2 style={{margin:0}}>{d.score} / {d.total} · {d.percent}%</h2><p className="known" style={{marginBottom:0}}>{tr('quiz.resultLine',{result:tr(d.passed?'quiz.passedShort':'quiz.below'),pct:d.pass_percent})}{d.summary&&' '+d.summary}</p></div>
+    {d.areas.length>0&&<><h3 className="sec">{tr(staff?'insights.strengths':'quiz.revisit')}</h3><AreaList areas={d.areas} onStudy={staff?null:setTopic} staff={staff}/></>}
+    {d.no_detail&&<p className="known">{tr('quiz.noDetail')}</p>}
+    {d.changed>0&&<p className="known">{tr(d.changed===1?'quiz.changedOne':'quiz.changedMany',{n:d.changed})}</p>}
+    {!d.reveal&&d.questions.length>0&&<p className="known">{tr('quiz.seeRight',{right,total:d.questions.length})}</p>}
+    {d.questions.map((x,i)=><div className="qbox" key={x.id}><b>{tr('quiz.question',{n:i+1})} · {tr(x.ok?'quiz.right':'quiz.wrong')}{x.area?' · '+x.area:''}</b><div className="prose"><Md>{x.text}</Md></div><QImg src={x.image} alt={tr('quiz.pictureQ',{n:i+1})}/>
       {x.options.map((o,k)=>{const mine=x.chosen_known&&x.chosen===k,key=d.reveal&&x.correct===k,cls=key||(mine&&x.ok)?' ok':mine?' bad':''
-        return <div key={k} className={'opt'+cls}><b className="olet">{LET[k]}</b><OptBody text={o} img={x.option_images[k]} k={k}/>{(mine||key)&&<span className="otag">{[mine&&(staff?'Their answer':'Your answer'),key&&'Correct answer'].filter(Boolean).join(' · ')}</span>}</div>})}
-      {x.chosen_known&&x.chosen==null&&<p className="known">Left blank.</p>}
+        return <div key={k} className={'opt'+cls}><b className="olet">{LET[k]}</b><OptBody text={o} img={x.option_images[k]} k={k}/>{(mine||key)&&<span className="otag">{[mine&&(staff?tr('quiz.theirAnswer'):tr('quiz.yourAnswer')),key&&tr('quiz.correctAnswer')].filter(Boolean).join(' · ')}</span>}</div>})}
+      {x.chosen_known&&x.chosen==null&&<p className="known">{tr('quiz.leftBlank')}</p>}
       {x.explanation&&<div className="known"><Md>{x.explanation}</Md></div>}</div>)}</div></>}
-function MyAttempts({quiz,user,back,toast,role}){  // a person's attempts at one quiz; staff pass user to see a student's
+function MyAttempts({quiz,user,back,toast,role}){const {t:tr}=useI18n();  // a person's attempts at one quiz; staff pass user to see a student's
   const [d,setD]=useState(null),[open,setOpen]=useState(null)
   useEffect(()=>{api(`/quizzes/${quiz}/attempts`+(user?'?user_id='+user:'')).then(setD).catch(e=>{toast(e.message);back()})},[quiz,user])
   if(open)return <AttemptView id={open} back={()=>setOpen(null)} toast={toast} role={role}/>
-  return <><Bar title={d?.quiz||'Attempts'} sub={d?(user?d.user+' · ':'')+pl(d.items.length,'attempt'):''} back={back}/><div className="main">
-    {d&&!d.items.length&&<p className="known">No attempts yet.</p>}
-    {d?.items.map((a,i)=><button key={a.id} className="row rowbtn" onClick={()=>setOpen(a.id)}><div>{a.score} / {a.total} · {a.percent}%<small>{when(a.at)} · {a.passed?'Passed':'Below the pass mark'}{i===0?' · latest':''}</small><Bar2 v={a.percent}/></div><ChevronRight size={18}/></button>)}</div></>}
+  return <><Bar title={d?.quiz||tr('quiz.attempts')} sub={d?(user?d.user+' · ':'')+tr(d.items.length===1?'quiz.attemptOne':'quiz.attemptMany',{n:d.items.length}):''} back={back}/><div className="main">
+    {d&&!d.items.length&&<p className="known">{tr('quiz.noAttempts')}</p>}
+    {d?.items.map((a,i)=><button key={a.id} className="row rowbtn" onClick={()=>setOpen(a.id)}><div>{a.score} / {a.total} · {a.percent}%<small>{when(a.at)} · {tr(a.passed?'quiz.passedShort':'quiz.below')}{i===0?' · '+tr('quiz.latest'):''}</small><Bar2 v={a.percent}/></div><ChevronRight size={18}/></button>)}</div></>}
 
 const MCQ_TEMPLATE=`question,a,b,c,d,correct,explanation,topic,area,question_image,a_image,b_image,c_image,d_image
 "Which ion makes water hard?",Na+,Ca2+,Cl-,K+,B,"Calcium and magnesium salts cause hardness.",Water Treatment,,,,,,
@@ -491,7 +491,7 @@ const blankQ=()=>({text:'',options:['',''],option_images:['',''],correct:0,expla
 const fromCsv=x=>({text:x.text,options:x.options,option_images:x.option_images.map(v=>v||''),correct:x.correct,explanation:x.explanation||'',topic_id:x.topic_id,area:x.area||'',image:x.image||'',
   need:{image:x.image?'':x.image_name,options:x.option_image_names.map((n,k)=>x.option_images[k]?'':n)}})
 const missing=qs=>qs.flatMap((x,i)=>[...(x.need.image&&!x.image?[{i,k:-1,name:x.need.image}]:[]),...x.need.options.map((n,k)=>n&&!x.option_images[k]?{i,k,name:n}:null).filter(Boolean)])
-function QuizEditor({id,unit_id,course_id,unitTopics,csvFirst,done,toast}){
+function QuizEditor({id,unit_id,course_id,unitTopics,csvFirst,done,toast}){const {t:tr}=useI18n();
   const confirm=useConfirm()
   const [m,setM]=useState({title:'',pass_percent:50,published:false,reveal:false}),[qs,setQs]=useState([blankQ()]),[busy,setBusy]=useState(false),[topics,setTopics]=useState(unitTopics||[]),csvRef=useRef(null),imgRef=useRef(null)
   const [csv,setCsv]=useState(null),[bank,setBank]=useState(false),[btags,setBtags]=useState(''),[stage,setStage]=useState(csvFirst&&!id?'csv':'edit'),[cid,setCid]=useState(course_id)
@@ -542,7 +542,7 @@ function QuizEditor({id,unit_id,course_id,unitTopics,csvFirst,done,toast}){
     <label>Pass mark (%)</label><input type="number" min="1" max="100" value={m.pass_percent} onChange={e=>setM({...m,pass_percent:e.target.value})}/>
     <label className="chk"><input type="checkbox" checked={m.published} onChange={e=>setM({...m,published:e.target.checked})}/> Published (students can take it)</label>
     <label className="chk"><input type="checkbox" checked={m.reveal} onChange={e=>setM({...m,reveal:e.target.checked})}/> Show students the correct answers and explanations after they submit</label>
-    {qs.map((x,i)=><div className="qbox" key={i}><b>Question {i+1}</b>
+    {qs.map((x,i)=><div className="qbox" key={i}><b>{tr('quiz.question',{n:i+1})}</b>
       <textarea placeholder="Question (Markdown and $math$ work)" value={x.text} onChange={e=>upd(i,{text:e.target.value})}/>
       <ImgSlot url={x.image} need={x.need.image} label={'question '+(i+1)} toast={toast} onSet={(v,skip)=>setQImg(i,v,skip)}/>
       {x.options.map((o,k)=><div key={k}><div className="qopt"><input type="radio" name={'c'+i} aria-label={'Answer '+LET[k]+' is correct'} checked={x.correct===k} onChange={()=>upd(i,{correct:k})}/><b className="olet">{LET[k]}</b><input value={o} placeholder={'Answer '+LET[k]+(x.option_images[k]?' (optional with an image)':'')} onChange={e=>setOpt(i,k,e.target.value)}/>
