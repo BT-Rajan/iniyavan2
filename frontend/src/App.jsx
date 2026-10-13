@@ -195,15 +195,15 @@ const Bar=({title,sub,back,right})=>{const {menu}=useContext(Ctx),{t}=useI18n();
   <button className="ic menu" aria-label={t('menu.open')} onClick={menu}><Menu/></button>{back&&<button className="ic" aria-label={t('common.back')} onClick={back}><ChevronLeft/></button>}
   <h1>{title}{sub&&<small>{sub}</small>}</h1>{right}</header>}
 
-const ARCHIVE_WHAT={programs:'every semester or year, course, unit, topic and quiz in it',semesters:'every course, unit, topic and quiz in it',courses:'its units, topics and quizzes',units:'its topics and quizzes',topics:'this topic'}
-const ONE={programs:'program',semesters:'semester or year',courses:'course',units:'unit',topics:'topic'}
-function ArchiveSheet({a,close,done,toast}){  // archive or restore one item; archiving takes everything under it along, nothing is deleted
+const ARCHIVE_WHAT={programs:'arch.what.programs',semesters:'arch.what.semesters',courses:'arch.what.courses',units:'arch.what.units',topics:'arch.what.topics'}
+const ONE={programs:'arch.one.programs',semesters:'arch.one.semesters',courses:'arch.one.courses',units:'arch.one.units',topics:'arch.one.topics'}
+function ArchiveSheet({a,close,done,toast}){const {t:tr}=useI18n();  // archive or restore one item; archiving takes everything under it along, nothing is deleted
   const [busy,setBusy]=useState(false)
-  const go=async()=>{setBusy(true);try{await api(`/${a.kind}/${a.id}/archive`,{method:'PUT',body:{archived:a.on}});toast(a.on?'Archived':'Restored');done()}catch(e){toast(e.message);setBusy(false)}}
-  return <Sheet close={close}><h3>{a.on?'Archive':'Restore'} “{a.name}”?</h3>
-    <p className="known">{a.on?`This hides the ${ONE[a.kind]} and ${ARCHIVE_WHAT[a.kind]} from students, who see “unavailable right now” instead. Nothing is deleted and reading progress and quiz results are kept. You can restore it any time.`
-      :`This brings back the ${ONE[a.kind]} and everything that was archived along with it. Anything you archived on its own inside it stays archived until you restore that too.`}</p>
-    <button className={'btn'+(a.on?' danger':'')} disabled={busy} onClick={go}>{busy?'Working…':a.on?'Archive':'Restore'}</button><button className="btn ghost" onClick={close}>Cancel</button></Sheet>}
+  const go=async()=>{setBusy(true);try{await api(`/${a.kind}/${a.id}/archive`,{method:'PUT',body:{archived:a.on}});toast(a.on?tr('sheet.archived'):tr('sheet.restored'));done()}catch(e){toast(e.message);setBusy(false)}}
+  return <Sheet close={close}><h3>{a.on?tr('sheet.archive'):tr('sheet.restore')} “{a.name}”?</h3>
+    <p className="known">{a.on?tr('sheet.archiveBody',{one:tr(ONE[a.kind]),what:tr(ARCHIVE_WHAT[a.kind])})
+      :tr('sheet.restoreBody',{one:tr(ONE[a.kind])})}</p>
+    <button className={'btn'+(a.on?' danger':'')} disabled={busy} onClick={go}>{busy?tr('sheet.working'):a.on?tr('sheet.archive'):tr('sheet.restore')}</button><button className="btn ghost" onClick={close}>{tr('common.cancel')}</button></Sheet>}
 const ArchPill=({x})=>{const {t:tr}=useI18n();return x.archived?<span className="pill off sm">{tr(x.archived_self?'learn.archived':'learn.archivedWithParent')}</span>:null}
 function Learn({user,toast,appName,start}){const {t:tr}=useI18n();
   const isAdmin=user.role==='admin',staff=user.role!=='student'
@@ -234,8 +234,8 @@ function Learn({user,toast,appName,start}){const {t:tr}=useI18n();
   const cur=unit||co||sem||prog,crumbs=[prog,sem,co,unit].filter(Boolean).slice(0,-1).map(x=>x.name).join(' › ')
   const allSems=tree.flatMap(p=>p.semesters.map(s=>({id:s.id,label:p.name+' › '+s.name})))
   const myCourses=tree.flatMap(p=>p.semesters.flatMap(s=>s.courses.filter(c=>c.mine&&!c.shared&&(!c.archived||showArch)).map(c=>({p,s,c}))))
-  const saveShare=async()=>{try{await api(`/courses/${sh.id}/links`,{method:'PUT',body:{semester_ids:sh.sel}});toast('Sharing updated');setSh(null);load()}catch(e){toast(e.message)}}
-  const remove=async()=>{try{if(del.unlink)await api(`/courses/${del.unlink.id}/links`,{method:'PUT',body:{semester_ids:del.unlink.keep}});else await api(`/${del.kind}/${del.id}`,{method:'DELETE'});toast('Deleted');setDel(null);load()}catch(e){toast(e.message)}}
+  const saveShare=async()=>{try{await api(`/courses/${sh.id}/links`,{method:'PUT',body:{semester_ids:sh.sel}});toast(tr('sheet.sharingUpdated'));setSh(null);load()}catch(e){toast(e.message)}}
+  const remove=async()=>{try{if(del.unlink)await api(`/courses/${del.unlink.id}/links`,{method:'PUT',body:{semester_ids:del.unlink.keep}});else await api(`/${del.kind}/${del.id}`,{method:'DELETE'});toast(tr('sheet.deleted'));setDel(null);load()}catch(e){toast(e.message)}}
   return <><Bar title={cur?.name||appName} sub={nav.length?crumbs:tr('learn.hi',{name:user.name})} back={nav.length>0&&(()=>setNav(nav.slice(0,-1)))}/>
    <div className="main">{unit&&mayEdit&&drafts(unit.topics)>0&&<button className="btn" style={{marginTop:0}} onClick={()=>setPub(`/units/${unit.id}/publish`,true,'All drafts published')}>{tr('learn.publishAll',{n:drafts(unit.topics)})}</button>}{!nav.length&&<div className="hero"><h2>{tr('learn.chooseProgram')}</h2></div>}
      {staff&&(anyArch||showArch)&&<label className="chk" style={{marginBottom:12}}><input type="checkbox" checked={showArch} onChange={e=>setShowArch(e.target.checked)}/> {tr('learn.showArchived')}{!showArch&&hidden>0?' '+tr('learn.hereCount',{n:hidden}):''}</label>}
@@ -264,42 +264,38 @@ function Learn({user,toast,appName,start}){const {t:tr}=useI18n();
     {!list.length&&<p className="known">{(mayEdit&&co)||isAdmin?tr('learn.emptyAdmin'):!nav.length&&user.role==='student'?tr('learn.emptyStudent'):tr('learn.emptyOther')}</p>}</div>
    {arch&&<ArchiveSheet a={arch} toast={toast} close={()=>setArch(null)} done={()=>setArch(null)}/>}
    {copy&&<CopySheet {...copy} toast={toast} close={()=>{setCopy(null);load()}}/>}
-   {del&&<Sheet close={()=>setDel(null)}><h3>{del.unlink?'Remove':'Delete'} “{del.n}”{del.unlink?' from this '+(prog?.term||'semester').toLowerCase():''}?</h3>
-     <p className="known">{del.unlink?'It only disappears from this '+(prog?.term||'semester').toLowerCase()+'. The course stays where it was created.':DELETES[del.kind]} This can't be undone.</p>
-     <button className="btn danger" onClick={remove}>{del.unlink?'Remove':'Delete'}</button><button className="btn ghost" onClick={()=>setDel(null)}>Cancel</button></Sheet>}
-   {sh&&<Sheet close={()=>setSh(null)}><h3>Share “{sh.name}”</h3><p className="known">Tick every semester or year that should also show this course. You still edit it in one place.</p>
+   {del&&<Sheet close={()=>setDel(null)}><h3>{del.unlink?tr('sheet.remove'):tr('sheet.delete')} “{del.n}”{del.unlink?' '+tr('sheet.fromThis',{term:(prog?.term||'semester').toLowerCase()}):''}?</h3>
+     <p className="known">{del.unlink?tr('sheet.unlinkBody',{term:(prog?.term||'semester').toLowerCase()}):tr(DELETES[del.kind])} {tr('sheet.cantUndo')}</p>
+     <button className="btn danger" onClick={remove}>{del.unlink?tr('sheet.remove'):tr('sheet.delete')}</button><button className="btn ghost" onClick={()=>setDel(null)}>{tr('common.cancel')}</button></Sheet>}
+   {sh&&<Sheet close={()=>setSh(null)}><h3>{tr('sheet.share',{name:sh.name})}</h3><p className="known">{tr('sheet.shareHint')}</p>
      {allSems.filter(x=>x.id!==sh.home).map(x=><label key={x.id} className="chk"><input type="checkbox" checked={sh.sel.includes(x.id)} onChange={e=>setSh({...sh,sel:e.target.checked?[...sh.sel,x.id]:sh.sel.filter(i=>i!==x.id)})}/> {x.label}</label>)}
-     <button className="btn" onClick={saveShare}>Save</button><button className="btn ghost" onClick={()=>setSh(null)}>Cancel</button></Sheet>}
+     <button className="btn" onClick={saveShare}>{tr('common.save')}</button><button className="btn ghost" onClick={()=>setSh(null)}>{tr('common.cancel')}</button></Sheet>}
    {sheet?.type==='program'&&<ProgramSheet p={sheet.p} toast={toast} close={()=>setSheet(null)} done={()=>setSheet(null)}/>}
    {sheet?.type==='semester'&&<SemesterSheet sem={sheet.sem} pid={sheet.pid} term={prog?.term} toast={toast} close={()=>setSheet(null)} done={()=>setSheet(null)}/>}
    {sheet?.type==='course'&&<CourseSheet c={sheet.c} pid={sheet.pid} sid={sheet.sid} term={prog?.term} sems={tree.flatMap(p=>p.semesters.map(s=>({id:s.id,label:p.name+' › '+s.name})))} toast={toast} close={()=>setSheet(null)} done={()=>setSheet(null)}/>}
    {sheet?.type==='unit'&&<UnitSheet un={sheet.un} cid={sheet.cid} courses={isAdmin?tree.flatMap(p=>p.semesters.flatMap(s=>s.courses.filter(c=>!c.shared).map(c=>({id:c.id,label:`${p.name} › ${s.name} › ${c.name}`})))):null} toast={toast} close={()=>setSheet(null)} done={()=>setSheet(null)}/>}
    {sheet?.type==='owner'&&<OwnerSheet c={sheet.c} toast={toast} close={()=>setSheet(null)} done={()=>setSheet(null)}/>}
 </>}
-const DELETES={programs:"This deletes its semesters and courses with their units, topics and quizzes, and the students' reading progress, bookmarks and quiz attempts in them. Enrolled students keep their accounts but lose their program.",
-  semesters:"This deletes its courses with their units, topics and quizzes, and the students' reading progress, bookmarks and quiz attempts in them. Courses shared into it from elsewhere are only unlinked.",
-  courses:"This deletes its units, topics and quizzes, and the students' reading progress, bookmarks and quiz attempts in them. The owner keeps their account.",
-  units:"This deletes its topics and quizzes, and the students' reading progress, bookmarks and quiz attempts in them.",
-  topics:"This deletes the topic, its saved AI answers, and the students' reading progress and bookmarks for it."}
-function SemesterSheet({sem,pid,term='Semester',close,done,toast}){
+const DELETES={programs:'del.programs',semesters:'del.semesters',courses:'del.courses',units:'del.units',topics:'del.topics'}
+function SemesterSheet({sem,pid,term='Semester',close,done,toast}){const {t:tr}=useI18n();
   const isNew=!sem.id,[f,setF]=useState({name:sem.name||'',no:sem.number||''}),[busy,setBusy]=useState(false)
   const pickNo=e=>{const no=e.target.value;setF({no,name:!f.name||/^(Semester|Year|Grade) \d+$/.test(f.name)?(no?term+' '+no:''):f.name})}
-  const save=async()=>{setBusy(true);try{const body={name:f.name,semester_no:f.no?+f.no:null};await api(isNew?`/programs/${pid}/semesters`:'/semesters/'+sem.id,{method:isNew?'POST':'PUT',body:isNew?body:{...body,program_id:pid}});toast(isNew?term+' added':'Changes saved');done()}catch(e){toast(e.message)}setBusy(false)}
-  return <Sheet close={close}><h3>{isNew?'New '+term.toLowerCase():'Edit '+term.toLowerCase()}</h3>
-    <label>{term} number</label><select value={f.no} onChange={pickNo}><option value="">Choose…</option>{upTo(maxOf(term)).map(n=><option key={n} value={n}>{n}</option>)}</select>
-    <label>Name</label><input value={f.name} onChange={e=>setF({...f,name:e.target.value})} placeholder={term+" 3"}/>
-    <p className="known" style={{marginTop:10}}>The number sets the order and which students see it: a student in {term.toLowerCase()} 3 sees {term.toLowerCase()}s 1 to 3. Each number is used once per program.</p>
-    <button className="btn" disabled={busy||!f.no||!f.name.trim()} onClick={save}>{isNew?'Add '+term.toLowerCase():'Save changes'}</button></Sheet>}
-function CourseSheet({c,pid,sid,sems,term='Semester',close,done,toast}){
+  const save=async()=>{setBusy(true);try{const body={name:f.name,semester_no:f.no?+f.no:null};await api(isNew?`/programs/${pid}/semesters`:'/semesters/'+sem.id,{method:isNew?'POST':'PUT',body:isNew?body:{...body,program_id:pid}});toast(isNew?tr('sheet.termAdded',{term}):tr('topic.changesSaved'));done()}catch(e){toast(e.message)}setBusy(false)}
+  return <Sheet close={close}><h3>{isNew?tr('sheet.newTerm',{term:term.toLowerCase()}):tr('sheet.editTerm',{term:term.toLowerCase()})}</h3>
+    <label>{tr('sheet.termNumber',{term})}</label><select value={f.no} onChange={pickNo}><option value="">{tr('sheet.choose')}</option>{upTo(maxOf(term)).map(n=><option key={n} value={n}>{n}</option>)}</select>
+    <label>{tr('sheet.name')}</label><input value={f.name} onChange={e=>setF({...f,name:e.target.value})} placeholder={tr('sheet.termExample',{term})}/>
+    <p className="known" style={{marginTop:10}}>{tr('sheet.termHint',{term:term.toLowerCase()})}</p>
+    <button className="btn" disabled={busy||!f.no||!f.name.trim()} onClick={save}>{isNew?tr('sheet.addTerm',{term:term.toLowerCase()}):tr('topic.saveChanges')}</button></Sheet>}
+function CourseSheet({c,pid,sid,sems,term='Semester',close,done,toast}){const {t:tr}=useI18n();
   const isNew=!c.id,faculty=useFaculty(true),[f,setF]=useState({name:c.name||'',sem:sid,owner:c.owner_id||''}),[busy,setBusy]=useState(false)
   const save=async()=>{setBusy(true);try{const owner=String(f.owner)!==String(c.owner_id||'')?{faculty_owner_id:f.owner?+f.owner:null}:{}  // unchanged owners are left alone
-    await api(isNew?`/programs/${pid}/semesters/${sid}/courses`:'/courses/'+c.id,{method:isNew?'POST':'PUT',body:isNew?{name:f.name,...owner}:{name:f.name,semester_id:+f.sem,...owner}});toast(isNew?'Course added':'Changes saved');done()}catch(e){toast(e.message)}setBusy(false)}
-  return <Sheet close={close}><h3>{isNew?'New course in '+(sems.find(x=>x.id===sid)?.label||''):'Edit course'}</h3>
-    <label>Name</label><input value={f.name} onChange={e=>setF({...f,name:e.target.value})} placeholder="Thermodynamics"/>
+    await api(isNew?`/programs/${pid}/semesters/${sid}/courses`:'/courses/'+c.id,{method:isNew?'POST':'PUT',body:isNew?{name:f.name,...owner}:{name:f.name,semester_id:+f.sem,...owner}});toast(isNew?tr('sheet.courseAdded'):tr('topic.changesSaved'));done()}catch(e){toast(e.message)}setBusy(false)}
+  return <Sheet close={close}><h3>{isNew?tr('sheet.newCourseIn',{where:sems.find(x=>x.id===sid)?.label||''}):tr('learn.editCourse')}</h3>
+    <label>{tr('sheet.name')}</label><input value={f.name} onChange={e=>setF({...f,name:e.target.value})} placeholder={tr('sheet.coursePh')}/>
     {!isNew&&<><label>{term}</label><select value={f.sem} onChange={e=>setF({...f,sem:+e.target.value})}>{sems.map(x=><option key={x.id} value={x.id}>{x.label}</option>)}</select></>}
-    <label>Owner (faculty)</label><select value={f.owner} onChange={e=>setF({...f,owner:e.target.value})}><option value="">Not assigned</option>{c.owner_id&&!faculty.some(u=>u.id===c.owner_id)&&<option value={c.owner_id}>{c.owner} (can't edit)</option>}{faculty.map(u=><option key={u.id} value={u.id}>{u.name} ({u.email})</option>)}</select>
-    {!isNew&&+f.sem!==sid&&<p className="known">Moving the course takes its units, topics, quizzes and owner with it. Students placed there will see it.</p>}
-    <button className="btn" disabled={busy||!f.name.trim()} onClick={save}>{isNew?'Add course':'Save changes'}</button></Sheet>}
+    <label>{tr('sheet.ownerFaculty')}</label><select value={f.owner} onChange={e=>setF({...f,owner:e.target.value})}><option value="">{tr('learn.notAssigned')}</option>{c.owner_id&&!faculty.some(u=>u.id===c.owner_id)&&<option value={c.owner_id}>{c.owner} ({tr('sheet.cantEdit')})</option>}{faculty.map(u=><option key={u.id} value={u.id}>{u.name} ({u.email})</option>)}</select>
+    {!isNew&&+f.sem!==sid&&<p className="known">{tr('sheet.moveCourseHint')}</p>}
+    <button className="btn" disabled={busy||!f.name.trim()} onClick={save}>{isNew?tr('sheet.addCourse'):tr('topic.saveChanges')}</button></Sheet>}
 
 const STUDY={not_started:'Not opened yet',in_progress:'Opened, not marked completed',completed:'Marked completed'}
 const AREA_GROUPS=[['needs_study','Needs another round of study','Read these topics again, then retake the quiz.'],['getting_there','Getting there',''],['strong','Strong areas','You answered these well.']]
@@ -623,34 +619,34 @@ function MyScores({onCourse}){  // a student's final score per course
   useEffect(()=>{api('/me/scores').then(setD).catch(()=>setD({courses:[]}))},[])
   if(!d||!d.courses.length)return null
   return <><h3 className="sec first">Scores</h3>{d.courses.map(x=><button key={x.course_id} className="row rowbtn" onClick={()=>onCourse(x)}><div>{x.course}<small>{x.final==null?'No tests taken yet':'Final score '+x.final+'%'} · {x.taken} of {x.tests.length} taken · {x.passed} passed</small>{x.final!=null&&<Bar2 v={x.final}/>}</div><ChevronRight size={18}/></button>)}</>}
-function BankSheet({close,onAdd,toast}){
+function BankSheet({close,onAdd,toast}){const {t:tr}=useI18n();
   const confirm=useConfirm()
   const [q,setQ]=useState(''),[tag,setTag]=useState(''),[mine,setMine]=useState(false),[d,setD]=useState(null),[sel,setSel]=useState({}),[n,setN]=useState(0)
   useEffect(()=>{const t=setTimeout(()=>api('/bank?limit=30&q='+encodeURIComponent(q)+'&tag='+encodeURIComponent(tag)+(mine?'&mine=true':'')).then(setD).catch(e=>toast(e.message)),250);return()=>clearTimeout(t)},[q,tag,mine,n,toast])
   const picked=Object.values(sel),more=async()=>{try{const r=await api('/bank?limit=30&offset='+d.items.length+'&q='+encodeURIComponent(q)+'&tag='+encodeURIComponent(tag)+(mine?'&mine=true':''));setD({...d,items:[...d.items,...r.items]})}catch(e){toast(e.message)}}
   const flip=x=>{const c={...sel};c[x.id]?delete c[x.id]:c[x.id]=x;setSel(c)}
-  const del=async x=>{if(!await confirm({title:'Delete this question from the bank?',body:'It disappears for everyone. Quizzes that already use it keep their copy.',ok:'Delete',danger:true}))return;try{await api('/bank/'+x.id,{method:'DELETE'});const c={...sel};delete c[x.id];setSel(c);setN(n+1)}catch(e){toast(e.message)}}
-  return <Sheet close={close}><h3>Question bank</h3><p className="known">Questions shared by every teacher. Adding one puts a copy in this quiz, so later changes to the bank never alter a quiz students are taking.</p>
-    <div className="search"><Search size={18}/><input type="search" aria-label="Search the bank" placeholder="Search questions, tags or source" value={q} onChange={e=>setQ(e.target.value)}/></div>
-    <div className="filters"><select aria-label="Filter by tag" value={tag} onChange={e=>setTag(e.target.value)}><option value="">All tags</option>{(d?.tags||[]).map(t=><option key={t} value={t}>{t}</option>)}</select>
-      <label className="chk" style={{padding:0}}><input type="checkbox" checked={mine} onChange={e=>setMine(e.target.checked)}/> Only mine</label></div>
-    {!d?<div className="sk"/>:!d.items.length?<p className="known">{q||tag||mine?'Nothing matches that.':'The bank is empty. Use “Save to bank” in any quiz to start it.'}</p>:d.items.map(x=><div key={x.id} className="row"><label className="chk" style={{alignItems:'flex-start',flex:1}}><input type="checkbox" checked={!!sel[x.id]} onChange={()=>flip(x)}/><span><span style={{display:'block'}}>{x.text.length>180?x.text.slice(0,180)+'…':x.text}</span><small>{x.options.length} answers{x.tags.length>0&&' · '+x.tags.join(', ')} · by {x.owner||'someone'}{x.uses>0&&' · used '+pl(x.uses,'time')}</small></span></label>{x.can_edit&&<button className="ic sm" aria-label="Delete from the bank" onClick={()=>del(x)}><Trash2 size={16}/></button>}</div>)}
+  const del=async x=>{if(!await confirm({title:tr('bank.delTitle'),body:tr('bank.delBody'),ok:tr('sheet.delete'),danger:true}))return;try{await api('/bank/'+x.id,{method:'DELETE'});const c={...sel};delete c[x.id];setSel(c);setN(n+1)}catch(e){toast(e.message)}}
+  return <Sheet close={close}><h3>{tr('bank.title')}</h3><p className="known">{tr('bank.intro')}</p>
+    <div className="search"><Search size={18}/><input type="search" aria-label={tr('bank.search')} placeholder={tr('bank.searchPh')} value={q} onChange={e=>setQ(e.target.value)}/></div>
+    <div className="filters"><select aria-label={tr('bank.filterTag')} value={tag} onChange={e=>setTag(e.target.value)}><option value="">{tr('bank.allTags')}</option>{(d?.tags||[]).map(t=><option key={t} value={t}>{t}</option>)}</select>
+      <label className="chk" style={{padding:0}}><input type="checkbox" checked={mine} onChange={e=>setMine(e.target.checked)}/> {tr('bank.onlyMine')}</label></div>
+    {!d?<div className="sk"/>:!d.items.length?<p className="known">{q||tag||mine?tr('bank.nothing'):tr('bank.empty')}</p>:d.items.map(x=><div key={x.id} className="row"><label className="chk" style={{alignItems:'flex-start',flex:1}}><input type="checkbox" checked={!!sel[x.id]} onChange={()=>flip(x)}/><span><span style={{display:'block'}}>{x.text.length>180?x.text.slice(0,180)+'…':x.text}</span><small>{tr('bank.answers',{n:x.options.length})}{x.tags.length>0&&' · '+x.tags.join(', ')} · {tr('bank.by',{name:x.owner||tr('bank.someone')})}{x.uses>0&&' · '+tr(x.uses===1?'bank.usedOne':'bank.usedMany',{n:x.uses})}</small></span></label>{x.can_edit&&<button className="ic sm" aria-label={tr('bank.deleteAria')} onClick={()=>del(x)}><Trash2 size={16}/></button>}</div>)}
     {d&&d.items.length<d.total&&<ShowMore left={d.total-d.items.length} onClick={more}/>}
-    <button className="btn" disabled={!picked.length} onClick={()=>onAdd(picked)}>{picked.length?`Add ${pl(picked.length,'question')}`:'Choose questions to add'}</button><button className="btn ghost" onClick={close}>Cancel</button></Sheet>}
+    <button className="btn" disabled={!picked.length} onClick={()=>onAdd(picked)}>{picked.length?tr(picked.length===1?'bank.addOne':'bank.addMany',{n:picked.length}):tr('bank.choose')}</button><button className="btn ghost" onClick={close}>{tr('common.cancel')}</button></Sheet>}
 
-function CopySheet({kind,id,title,close,toast}){
+function CopySheet({kind,id,title,close,toast}){const {t:tr}=useI18n();
   const [tree,setTree]=useState(null),[cid,setCid]=useState(''),[uid,setUid]=useState(''),[wq,setWq]=useState(true),[busy,setBusy]=useState(false),[res,setRes]=useState(null)
   useEffect(()=>{api('/tree').then(setTree).catch(e=>{toast(e.message);close()})},[toast,close])
   const courses=(tree||[]).flatMap(p=>p.semesters.flatMap(s=>s.courses.filter(c=>c.editable&&!c.shared).map(c=>({...c,label:`${p.name} › ${s.name} › ${c.name}`}))))
   const dest=courses.find(c=>String(c.id)===cid)
   const run=async()=>{setBusy(true);try{setRes(await api(`/${kind==='topic'?'topics':'units'}/${id}/copy`,{method:'POST',body:kind==='topic'?{unit_id:+uid}:{course_id:+cid,with_quizzes:wq}}))}catch(e){toast(e.message)}setBusy(false)}
-  if(res)return <Sheet close={close}><h3>Copied</h3><p className="known">{kind==='topic'?`“${res.title}” is a draft in ${dest.label} › ${dest.units.find(u=>u.id===res.unit_id)?.name}.`:`“${res.name}” is in ${dest.label} with ${pl(res.topics,'topic')}${res.quizzes?` and ${pl(res.quizzes,'quiz')}`:''}.`} Everything arrives as a draft, so students see nothing until you publish it.</p><button className="btn" onClick={close}>Done</button></Sheet>
-  return <Sheet close={close}><h3>Copy {kind==='topic'?'topic':'unit'}</h3><p className="known">Makes a copy of “{title}”{kind==='unit'?' with its topics'+(' and, if you may edit the original, its quizzes'):''} in a course you can edit. The original is not changed. Reading progress and bookmarks are not copied.</p>
-    {!tree?<div className="sk"/>:!courses.length?<p className="known">You do not own a course to copy into. An admin makes you the owner of a course.</p>:<>
-      <label htmlFor="cc">Copy into course</label><select id="cc" value={cid} onChange={e=>{setCid(e.target.value);setUid('')}}><option value="">Choose a course</option>{courses.map(c=><option key={c.id} value={c.id}>{c.label}</option>)}</select>
-      {kind==='topic'&&dest&&<><label htmlFor="cu">Unit</label><select id="cu" value={uid} onChange={e=>setUid(e.target.value)}><option value="">Choose a unit</option>{dest.units.map(u=><option key={u.id} value={u.id}>{u.name}</option>)}</select>{!dest.units.length&&<p className="known">That course has no units yet. Add a unit first.</p>}</>}
-      {kind==='unit'&&<label className="chk"><input type="checkbox" checked={wq} onChange={e=>setWq(e.target.checked)}/> Include its quizzes (as drafts)</label>}</>}
-    <button className="btn" disabled={busy||!dest||(kind==='topic'&&!uid)} onClick={run}>{busy?'Copying…':'Copy'}</button><button className="btn ghost" onClick={close}>Cancel</button></Sheet>}
+  if(res)return <Sheet close={close}><h3>{tr('copy.copied')}</h3><p className="known">{kind==='topic'?tr('copy.topicDraft',{title:res.title,path:`${dest.label} › ${dest.units.find(u=>u.id===res.unit_id)?.name}`}):tr('copy.unitDone',{name:res.name,path:dest.label,topics:tr(res.topics===1?'copy.topicOne':'copy.topicMany',{n:res.topics}),quizzes:res.quizzes?' '+tr('copy.andQuizzes',{quizzes:tr(res.quizzes===1?'copy.quizOne':'copy.quizMany',{n:res.quizzes})}):''})} {tr('copy.draftNote')}</p><button className="btn" onClick={close}>{tr('copy.done')}</button></Sheet>
+  return <Sheet close={close}><h3>{kind==='topic'?tr('copy.titleTopic'):tr('copy.titleUnit')}</h3><p className="known">{kind==='unit'?tr('copy.introUnit',{title}):tr('copy.intro',{title})}</p>
+    {!tree?<div className="sk"/>:!courses.length?<p className="known">{tr('copy.noCourse')}</p>:<>
+      <label htmlFor="cc">{tr('copy.copyInto')}</label><select id="cc" value={cid} onChange={e=>{setCid(e.target.value);setUid('')}}><option value="">{tr('copy.chooseCourse')}</option>{courses.map(c=><option key={c.id} value={c.id}>{c.label}</option>)}</select>
+      {kind==='topic'&&dest&&<><label htmlFor="cu">{tr('copy.unit')}</label><select id="cu" value={uid} onChange={e=>setUid(e.target.value)}><option value="">{tr('copy.chooseUnit')}</option>{dest.units.map(u=><option key={u.id} value={u.id}>{u.name}</option>)}</select>{!dest.units.length&&<p className="known">{tr('copy.noUnits')}</p>}</>}
+      {kind==='unit'&&<label className="chk"><input type="checkbox" checked={wq} onChange={e=>setWq(e.target.checked)}/> {tr('copy.includeQuizzes')}</label>}</>}
+    <button className="btn" disabled={busy||!dest||(kind==='topic'&&!uid)} onClick={run}>{busy?tr('copy.copying'):tr('copy.copy')}</button><button className="btn ghost" onClick={close}>{tr('common.cancel')}</button></Sheet>}
 const FIELD_LABEL={title:'topic.fieldTitle',content:'topic.fieldNotes',sample_content:'topic.sampleAnswer',question_pattern:'topic.questionPattern',guideline:'topic.guideline'}
 const lineDiff=(a,b)=>{const x=a.split('\n'),y=b.split('\n'),n=x.length,m=y.length
   if(n*m>250000)return [...x.map(t=>({k:'del',t})),...y.map(t=>({k:'add',t}))]  // very long texts: show both rather than spend the time
@@ -737,13 +733,13 @@ function TopicEditor({role,toast,done,cancel,edit,unitId}){const {t:tr}=useI18n(
     <label className="chk"><input type="checkbox" checked={f.published!==false} onChange={e=>setF({...f,published:e.target.checked})}/> {tr('topic.publishedCheck')}</label>
     {T('sample_content',tr('topic.sampleContent'),tr('topic.sampleHint'))}{T('guideline',tr('topic.howAnswer'),tr('topic.answerHint'))}
     <button className="btn" disabled={busy||!f.title.trim()} onClick={save}>{edit?tr('topic.saveChanges'):tr('topic.saveTopic')}</button></div></>}
-function UnitSheet({un,cid,courses,close,done,toast}){  // courses is given to admins only: moving a unit to another course is theirs to do
+function UnitSheet({un,cid,courses,close,done,toast}){const {t:tr}=useI18n();  // courses is given to admins only: moving a unit to another course is theirs to do
   const isNew=!un.id,[f,setF]=useState({name:un.name||'',course:cid}),[busy,setBusy]=useState(false)
-  const save=async()=>{setBusy(true);try{await api(isNew?'/units':'/units/'+un.id,{method:isNew?'POST':'PUT',body:{name:f.name,course_id:+f.course}});toast(isNew?'Unit added':'Changes saved');done()}catch(e){toast(e.message)}setBusy(false)}
-  return <Sheet close={close}><h3>{isNew?'New unit':'Edit unit'}</h3>
-    <label>Name</label><input value={f.name} onChange={e=>setF({...f,name:e.target.value})} onKeyDown={e=>e.key==='Enter'&&f.name.trim()&&save()} placeholder="Unit 1: Basic concepts" autoFocus/>
-    {!isNew&&courses&&<><label>Course</label><select value={f.course} onChange={e=>setF({...f,course:+e.target.value})}>{courses.map(c=><option key={c.id} value={c.id}>{c.label}</option>)}</select></>}
-    <button className="btn" disabled={busy||!f.name.trim()} onClick={save}>{isNew?'Add unit':'Save changes'}</button></Sheet>}
+  const save=async()=>{setBusy(true);try{await api(isNew?'/units':'/units/'+un.id,{method:isNew?'POST':'PUT',body:{name:f.name,course_id:+f.course}});toast(isNew?tr('sheet.unitAdded'):tr('topic.changesSaved'));done()}catch(e){toast(e.message)}setBusy(false)}
+  return <Sheet close={close}><h3>{isNew?tr('sheet.newUnit'):tr('sheet.editUnit')}</h3>
+    <label>{tr('sheet.name')}</label><input value={f.name} onChange={e=>setF({...f,name:e.target.value})} onKeyDown={e=>e.key==='Enter'&&f.name.trim()&&save()} placeholder={tr('sheet.unitPh')} autoFocus/>
+    {!isNew&&courses&&<><label>{tr('sheet.course')}</label><select value={f.course} onChange={e=>setF({...f,course:+e.target.value})}>{courses.map(c=><option key={c.id} value={c.id}>{c.label}</option>)}</select></>}
+    <button className="btn" disabled={busy||!f.name.trim()} onClick={save}>{isNew?tr('learn.addUnit'):tr('topic.saveChanges')}</button></Sheet>}
 
 const unmarked=(tree,id)=>tree.map(p=>({...p,semesters:p.semesters.map(s=>({...s,courses:s.courses.map(c=>({...c,units:c.units.map(u=>({...u,topics:u.topics.map(x=>x.id===id?{...x,bookmarked:false}:x)}))}))}))}))
 const tabTo=e=>e.currentTarget.scrollIntoView?.({inline:'center',block:'nearest'})
@@ -779,8 +775,8 @@ function Sheet({close,children}){
     addEventListener('keydown',k);if(box.current&&!box.current.contains(document.activeElement))box.current.focus()
     return()=>{sheets.splice(sheets.indexOf(me),1);removeEventListener('keydown',k);if(was&&was.isConnected)was.focus?.()}},[])
   return <div className="scrim" onClick={()=>cb.current()}><div className="sheet" ref={box} tabIndex={-1} role="dialog" aria-modal="true" onClick={e=>e.stopPropagation()}>{children}</div></div>}
-const Confirm=({o,answer})=><Sheet close={()=>answer(false)}><h3>{o.title}</h3>{o.body&&<p className="known">{o.body}</p>}
-  <button className={'btn'+(o.danger?' danger':'')} onClick={()=>answer(true)}>{o.ok||'Confirm'}</button><button className="btn ghost" onClick={()=>answer(false)}>Cancel</button></Sheet>
+const Confirm=({o,answer})=>{const {t:tr}=useI18n();return <Sheet close={()=>answer(false)}><h3>{o.title}</h3>{o.body&&<p className="known">{o.body}</p>}
+  <button className={'btn'+(o.danger?' danger':'')} onClick={()=>answer(true)}>{o.ok||tr('common.confirm')}</button><button className="btn ghost" onClick={()=>answer(false)}>{tr('common.cancel')}</button></Sheet>}
 const useConfirm=()=>useContext(Ctx).confirm
 const Toast=({msg})=>msg?<div className="toast" role="status">{msg}</div>:null
 const Skeleton=({rows=3})=><div aria-busy="true" aria-label="Loading">{Array.from({length:rows},(_,i)=><div className="sk" key={i}/>)}</div>
