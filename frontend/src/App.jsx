@@ -128,17 +128,17 @@ function Register({onIn,toast,msg,appName,logo,back}){
     <p className="known">{t('register.passwordHint')}</p>
     <button className="btn" disabled={b||!ok} onClick={start}>{t('register.send')}</button><button className="btn ghost" onClick={back}>{t('forgot.back')}</button><Toast msg={msg}/></div>}
 
-function MyAiKey({toast}){
+function MyAiKey({toast}){const {t:tr}=useI18n();
   const confirm=useConfirm()
   const [d,setD]=useState(null),[key,setKey]=useState(''),[b,setB]=useState(false)
   const load=()=>api('/me/ai-key').then(setD).catch(e=>toast(e.message));useEffect(()=>{load()},[])
-  const save=async()=>{setB(true);try{await api('/me/ai-key',{method:'PUT',body:{key}});setKey('');toast('Key saved. AI help is on.');load()}catch(e){toast(e.message)}setB(false)}
-  const del=async()=>{if(!await confirm({title:'Remove your key?',body:'AI help turns off for you until you add one again.',ok:'Remove key',danger:true}))return;try{await api('/me/ai-key',{method:'DELETE'});toast('Key removed');load()}catch(e){toast(e.message)}}
-  return <><Bar title="My AI key" sub={d?.key_set?'AI is on · key '+d.key_hint:'AI is off · no key yet'}/><div className="main">
-    <p className="known">AI explanations on your account use your own DeepSeek API key, so any usage is billed to your DeepSeek account. Create a key at platform.deepseek.com, paste it here and save. We check it with DeepSeek first, then store it encrypted. It is never shown again in full.</p>
-    <label htmlFor="k">DeepSeek API key</label><input id="k" type="password" autoComplete="off" value={key} onChange={e=>setKey(e.target.value)} placeholder={d?.key_set?'Paste a new key to replace the current one':'sk-…'}/>
-    <button className="btn" disabled={b||!key.trim()} onClick={save}>{b?'Checking the key…':'Save key'}</button>
-    {d?.key_set&&<button className="btn ghost" onClick={del}>Remove my key</button>}</div></>}
+  const save=async()=>{setB(true);try{await api('/me/ai-key',{method:'PUT',body:{key}});setKey('');toast(tr('mykey.savedOn'));load()}catch(e){toast(e.message)}setB(false)}
+  const del=async()=>{if(!await confirm({title:tr('mykey.removeTitle'),body:tr('mykey.removeBody'),ok:tr('mykey.removeOk'),danger:true}))return;try{await api('/me/ai-key',{method:'DELETE'});toast(tr('mykey.removed'));load()}catch(e){toast(e.message)}}
+  return <><Bar title={tr('mykey.title')} sub={d?.key_set?tr('ai.onKey',{hint:d.key_hint}):tr('ai.offNoKey')}/><div className="main">
+    <p className="known">{tr('mykey.intro')}</p>
+    <label htmlFor="k">{tr('ai.keyLabel')}</label><input id="k" type="password" autoComplete="off" value={key} onChange={e=>setKey(e.target.value)} placeholder={d?.key_set?tr('mykey.pastePh'):tr('ai.keyPh')}/>
+    <button className="btn" disabled={b||!key.trim()} onClick={save}>{b?tr('mykey.checking'):tr('mykey.save')}</button>
+    {d?.key_set&&<button className="btn ghost" onClick={del}>{tr('mykey.remove')}</button>}</div></>}
 
 function PromptEditor({toast}){const {t:tr}=useI18n();
   const confirm=useConfirm()
@@ -775,7 +775,7 @@ const Confirm=({o,answer})=>{const {t:tr}=useI18n();return <Sheet close={()=>ans
   <button className={'btn'+(o.danger?' danger':'')} onClick={()=>answer(true)}>{o.ok||tr('common.confirm')}</button><button className="btn ghost" onClick={()=>answer(false)}>{tr('common.cancel')}</button></Sheet>}
 const useConfirm=()=>useContext(Ctx).confirm
 const Toast=({msg})=>msg?<div className="toast" role="status">{msg}</div>:null
-const Skeleton=({rows=3})=><div aria-busy="true" aria-label="Loading">{Array.from({length:rows},(_,i)=><div className="sk" key={i}/>)}</div>
+const Skeleton=({rows=3})=>{const {t:tr}=useI18n();return <div aria-busy="true" aria-label={tr('common.loading')}>{Array.from({length:rows},(_,i)=><div className="sk" key={i}/>)}</div>}
 const ShowMore=({left,onClick,busy})=>{const {t:tr}=useI18n();return <button className="btn ghost" disabled={busy} onClick={onClick}>{tr('common.showMore',{n:left})}</button>}
 const Tabs=({items,value,onChange,scroll,label})=><div className={'tabs'+(scroll?' scroll':'')} role="tablist" aria-label={label}>{items.map(([k,l])=><button key={k} role="tab" aria-selected={value===k} className={value===k?'on':''} onClick={()=>onChange(k)}>{l}</button>)}</div>
 const useRun=(toast,load)=>async(fn,m)=>{try{await fn();toast(m);load&&load()}catch(e){toast(e.message)}}
@@ -826,7 +826,7 @@ function Users({toast,me}){const {t:tr}=useI18n();
     <div className="filters">
       <select aria-label={tr('users.filterProgram')} value={prog} onChange={e=>{const id=e.target.value;setProg(id);if(+sem>semsOf(progs,id).length)setSem('')}}><option value="">{tr('users.allPrograms')}</option>{progs.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select>
       <select aria-label={tr('users.filterTerm')} value={sem} onChange={e=>setSem(e.target.value)}><option value="">{lab==='Term'?tr('users.allTerms'):tr('users.allTermsOf',{term:lab.toLowerCase()})}</option>{semsOf(progs,prog).map(n=><option key={n} value={n}>{lab} {n}</option>)}</select>
-      <select aria-label="Sort by" value={order} onChange={e=>setOrder(e.target.value)}><option value="role">{tr('users.sortRole')}</option><option value="name">{tr('prog.sortName')}</option><option value="program">{tr('users.sortProgram')}</option><option value="semester">Sort: {lab.toLowerCase()}</option><option value="newest">Sort: newest first</option></select></div>
+      <select aria-label={tr('rs.sortBy')} value={order} onChange={e=>setOrder(e.target.value)}><option value="role">{tr('users.sortRole')}</option><option value="name">{tr('prog.sortName')}</option><option value="program">{tr('users.sortProgram')}</option><option value="semester">{tr('users.sortTerm',{term:lab.toLowerCase()})}</option><option value="newest">{tr('rs.sortNewest')}</option></select></div>
     <div className="two"><button className="btn" onClick={()=>setEd({})}>{tr('users.newUser')}</button><button className="btn ghost" onClick={()=>setBulk({stage:'pick'})}>{tr('prog.bulk')}</button></div>
     <button className="btn ghost" style={{marginTop:10}} aria-pressed={selMode} onClick={()=>{setSelMode(!selMode);setSel([])}}>{selMode?tr('users.doneSelecting'):tr('users.selectMany')}</button>
     {selMode&&items.length>0&&<div className="selbar"><button className="tool" onClick={()=>setSel(items.map(u=>u.id))}>{tr('users.selectAll',{n:items.length})}</button>{sel.length>0&&<button className="tool" onClick={()=>setSel([])}>{tr('users.clear')}</button>}</div>}
@@ -843,7 +843,7 @@ function Users({toast,me}){const {t:tr}=useI18n();
     {act&&<BulkSheet act={act} ids={sel} progs={progs} toast={toast} close={()=>setAct(null)} done={r=>{setAct({kind:'result',r});setSel([]);load()}}/>}
     {ed&&<UserSheet u={ed} me={me} progs={progs} toast={toast} close={()=>setEd(null)} done={()=>{setEd(null);load()}}/>}
     {bulk&&<Sheet close={()=>setBulk(null)}>
-      {bulk.stage==='pick'&&<><h3>{tr('users.bulkTitle')}</h3><p className="known">One row per person with the columns name, email, password, role, program and semester (the year number for annual programs such as M.B.B.S). Leave the password blank to generate one. Role is student or admin and defaults to student. Program must match a name on the Programs tab, and semester is a number from 1 to 8. Emails that already exist are updated, and blank program or semester cells leave the current value alone.</p>
+      {bulk.stage==='pick'&&<><h3>{tr('users.bulkTitle')}</h3><p className="known">{tr('users.bulkIntro')}</p>
         <button className="btn ghost" onClick={()=>download('users-template.csv',USER_TEMPLATE)}>{tr('prog.template')}</button><button className="btn" onClick={()=>fileRef.current.click()}>{tr('prog.chooseCsv')}</button></>}
       {bulk.stage==='preview'&&<><h3>{tr('prog.ready')}</h3><p className="known">{tr('users.validRows',{a:r.valid_rows,b:r.rows,created:r.created,updated:r.updated})}{r.generated>0&&' '+tr('users.genPasswords',{n:r.generated})}</p>
         {r.error_count>0&&<div className="prose" style={{maxHeight:'28vh',overflow:'auto',fontSize:14}}><b>{tr('prog.skipped',{n:r.error_count})}</b>{r.errors.map(e=><div key={e.row}>{tr('prog.rowErr',{row:e.row,error:e.error})}</div>)}</div>}
@@ -862,12 +862,12 @@ function UserDetail({id,me,progs,back,toast}){const {t:tr}=useI18n();
   const copy=async()=>{try{await navigator.clipboard.writeText(pw);toast(tr('users.copied'))}catch{toast(tr('users.copyHint'))}}
   const row=(v,l)=><div className="row"><div>{v}<small>{l}</small></div></div>
   const allCourses=ctree.flatMap(p=>p.semesters.flatMap(s=>s.courses.filter(c=>!c.shared).map(c=>({id:c.id,owner_id:c.owner_id,owner:c.owner,label:`${p.name} › ${s.name} › ${c.name}`}))))
-  const saveAsg=async()=>{try{await api(`/admin/users/${u.id}/courses`,{method:'PUT',body:{course_ids:asg}});toast('Courses updated');setAsg(null);load()}catch(e){toast(e.message)}}
+  const saveAsg=async()=>{try{await api(`/admin/users/${u.id}/courses`,{method:'PUT',body:{course_ids:asg}});toast(tr('users.coursesUpdated'));setAsg(null);load()}catch(e){toast(e.message)}}
   return <><Bar title={u.name} sub={u.email} back={back}/><div className="main">
     <div className="stats"><div className="stat"><b>{u.topics_read}</b>{tr('users.topicsRead')}</div><div className="stat"><b>{u.reads}</b>{tr('users.totalReads')}</div></div>
     <h3 className="sec">{tr('users.profile')}</h3>
-    {row({admin:tr('users.roleAdmin'),faculty:tr('users.roleFaculty')}[u.role]||tr('users.roleStudent'),tr('users.role'))}{row(u.active?tr('users.active'):tr('users.disabled'),tr('users.status'))}{row(u.program||tr('users.notSet'),tr('users.program'))}{row(u.semester||tr('users.notSet'),termOf(progs,u.program_id))}{u.self_registered&&<>{row(u.institution||'—','Institution')}{row(u.id_number||'—','ID number')}{row(u.phone||'—','Phone')}{row(u.own_ai_key?'Has added their own key':'No key yet · AI is off for them','AI (self-registered, uses their own key)')}</>}{row(day(u.last_active),'Last active')}
-    {u.role==='faculty'&&<><h3 className="sec">Courses they own</h3>{(u.course_ids||[]).length?allCourses.filter(c=>u.course_ids.includes(c.id)).map(c=><div className="row" key={c.id}><div>{c.label}</div></div>):<p className="known">None yet. They can read published content but edit nothing until they own a course.</p>}<button className="btn ghost" onClick={()=>setAsg([...(u.course_ids||[])])}>Assign courses</button></>}
+    {row({admin:tr('users.roleAdmin'),faculty:tr('users.roleFaculty')}[u.role]||tr('users.roleStudent'),tr('users.role'))}{row(u.active?tr('users.active'):tr('users.disabled'),tr('users.status'))}{row(u.program||tr('users.notSet'),tr('users.program'))}{row(u.semester||tr('users.notSet'),termOf(progs,u.program_id))}{u.self_registered&&<>{row(u.institution||'—',tr('users.institution'))}{row(u.id_number||'—',tr('users.idNumber'))}{row(u.phone||'—',tr('users.phone'))}{row(u.own_ai_key?tr('users.hasKey'):tr('users.noKeyYet'),tr('users.aiRow'))}</>}{row(day(u.last_active),tr('users.lastActive'))}
+    {u.role==='faculty'&&<><h3 className="sec">{tr('users.coursesOwn')}</h3>{(u.course_ids||[]).length?allCourses.filter(c=>u.course_ids.includes(c.id)).map(c=><div className="row" key={c.id}><div>{c.label}</div></div>):<p className="known">{tr('users.noneOwn')}</p>}<button className="btn ghost" onClick={()=>setAsg([...(u.course_ids||[])])}>{tr('users.assign')}</button></>}
     <h3 className="sec">{tr('users.recentlyRead')}</h3>
     {u.recent.length?u.recent.map((x,i)=><div className="row" key={i}><div>{x.title}<small>{tr('users.readsLast',{n:x.reads,day:day(x.last_read)})}</small></div></div>):<p className="known">{tr('users.noReading')}</p>}
     <div className="two"><button className="btn ghost" onClick={()=>setEd(true)}>{tr('common.edit')}</button><button className="btn" onClick={()=>setAsk(true)}>{tr('users.resetPw')}</button></div></div>
@@ -876,7 +876,7 @@ function UserDetail({id,me,progs,back,toast}){const {t:tr}=useI18n();
       <button className="btn danger" disabled={busy} onClick={reset}>{tr('users.resetPw')}</button><button className="btn ghost" onClick={()=>setAsk(false)}>Cancel</button></Sheet>}
     {pw&&<Sheet close={()=>setPw(null)}><h3>{tr('users.newPw')}</h3><p className="known">{tr('users.shareNow',{name:u.name})}</p><div className="pw">{pw}</div>
       <button className="btn" onClick={copy}>{tr('users.copyPw')}</button><button className="btn ghost" onClick={()=>setPw(null)}>{tr('users.done')}</button></Sheet>}
-    {asg&&<Sheet close={()=>setAsg(null)}><h3>Courses {u.name} owns</h3><p className="known">The owner adds and edits the units, topics and quizzes of a course. Each course has one owner, so ticking a course another person owns moves it to {u.name}.</p>{allCourses.map(c=><label key={c.id} className="chk"><input type="checkbox" checked={asg.includes(c.id)} onChange={e=>setAsg(e.target.checked?[...asg,c.id]:asg.filter(i=>i!==c.id))}/> {c.label}{c.owner_id&&c.owner_id!==u.id?` (now ${c.owner})`:''}</label>)}<button className="btn" onClick={saveAsg}>Save</button><button className="btn ghost" onClick={()=>setAsg(null)}>Cancel</button></Sheet>}</>}
+    {asg&&<Sheet close={()=>setAsg(null)}><h3>{tr('users.ownsTitle',{name:u.name})}</h3><p className="known">{tr('users.ownsHint',{name:u.name})}</p>{allCourses.map(c=><label key={c.id} className="chk"><input type="checkbox" checked={asg.includes(c.id)} onChange={e=>setAsg(e.target.checked?[...asg,c.id]:asg.filter(i=>i!==c.id))}/> {c.label}{c.owner_id&&c.owner_id!==u.id?' '+tr('users.nowOwner',{owner:c.owner}):''}</label>)}<button className="btn" onClick={saveAsg}>{tr('common.save')}</button><button className="btn ghost" onClick={()=>setAsg(null)}>Cancel</button></Sheet>}</>}
 
 function UserSheet({u,me,progs,close,done,toast}){const {t:tr}=useI18n();
   const isNew=!u.id,self=u.id===me.id,[busy,setBusy]=useState(false)
