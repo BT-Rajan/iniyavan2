@@ -44,7 +44,6 @@ const Mark=({s})=>{const {t:tr}=useI18n();return s==='completed'?<Check classNam
 const ownerLine=(c,tr)=>c.mine?tr('learn.yourCourse'):c.owner_problem||(c.owner?tr('learn.ownerName',{name:c.owner}):tr('learn.ownerNone'))
 const useFaculty=on=>{const [l,setL]=useState([]);useEffect(()=>{if(on)api('/admin/users?role=faculty&limit=100').then(r=>setL(r.items.filter(u=>u.active))).catch(()=>{})},[on]);return l}
 
-const pl=(n,w)=>`${n} ${w}${n===1?'':'s'}`
 const Ctx=createContext({})
 const THEMES=[['system',Monitor,'theme.system'],['light',Sun,'theme.light'],['dark',Moon,'theme.dark']]
 const readTheme=()=>{try{return localStorage.theme||'system'}catch{return 'system'}}
@@ -560,62 +559,62 @@ function QuizEditor({id,unit_id,course_id,unitTopics,csvFirst,done,toast}){const
     {id&&<button className="btn danger" onClick={del}>{tr('qe.deleteBtn',{what:course?tr('qe.test'):tr('qe.quiz')})}</button>}</div></>}
 
 // score spread: one series, so one hue and no legend; every bar has its count as text and a tooltip
-const Spread=({rows,pass})=>{const top=Math.max(1,...rows.map(r=>r.count))
-  return <figure className="spread" aria-label="How many students scored in each band"><div className="sbars">{rows.map((r,i)=><div key={r.label} className="sbar" title={`${r.label}%: ${pl(r.count,'student')}`}><em>{r.count||''}</em><i style={{height:r.count?Math.max(4,100*r.count/top)+'%':0}} className={i*10+9<pass?'below':''}/></div>)}</div>
-    <div className="saxis">{rows.map(r=><span key={r.label}>{r.label.split('–')[0]}</span>)}</div><figcaption>Final score in bands of 10%. Lighter bars are below the {pass}% pass mark.</figcaption></figure>}
-const PassPill=({ok})=><span className={'pill sm '+(ok?'okp':'off')}>{ok?'Passed':'Not yet'}</span>
-function QuizResults({id,back,toast,role}){
+const Spread=({rows,pass})=>{const {t:tr}=useI18n();const top=Math.max(1,...rows.map(r=>r.count))
+  return <figure className="spread" aria-label={tr('gb.spreadAria')}><div className="sbars">{rows.map((r,i)=><div key={r.label} className="sbar" title={`${r.label}%: ${tr(r.count===1?'res.studentOne':'res.studentMany',{n:r.count})}`}><em>{r.count||''}</em><i style={{height:r.count?Math.max(4,100*r.count/top)+'%':0}} className={i*10+9<pass?'below':''}/></div>)}</div>
+    <div className="saxis">{rows.map(r=><span key={r.label}>{r.label.split('–')[0]}</span>)}</div><figcaption>{tr('gb.spreadCap',{pass})}</figcaption></figure>}
+const PassPill=({ok})=>{const {t:tr}=useI18n();return <span className={'pill sm '+(ok?'okp':'off')}>{ok?tr('quiz.passedShort'):tr('gb.notYet')}</span>}
+function QuizResults({id,back,toast,role}){const {t:tr}=useI18n();
   const [d,setD]=useState(null),[tab,setTab]=useState('overview'),[who,setWho]=useState(null),[sort,setSort]=useState('order')
   useEffect(()=>{api(`/quizzes/${id}/results`).then(setD).catch(e=>{toast(e.message);back()})},[id])
   if(who)return <MyAttempts quiz={id} user={who} back={()=>setWho(null)} toast={toast} role={role}/>
-  if(!d)return <><Bar title="Results" back={back}/><div className="main"><Skeleton/></div></>
+  if(!d)return <><Bar title={tr('res.title')} back={back}/><div className="main"><Skeleton/></div></>
   const sm=d.summary,qs=sort==='hard'?[...d.questions].sort((a,b)=>(a.percent??101)-(b.percent??101)):d.questions
-  return <><Bar title={d.title} sub={`Results · ${sm.took} of ${sm.students} students took it`} back={back}/><div className="main">
-    <Tabs scroll label="Result sections" items={[['overview','Overview'],['students','Students'],['questions','Questions'],['areas','Strengths']]} value={tab} onChange={setTab}/>
-    {tab==='overview'&&<>{!sm.took?<p className="known">Nobody has taken it yet.{d.published?'':' It is still a draft, so students cannot see it.'}</p>:<>
-      <div className="stats">{[['Average final score',sm.average+'%'],['Pass rate',sm.pass_rate+'%',`${sm.passed} of ${sm.took} passed`],['Median',sm.median+'%'],['Highest · lowest',sm.highest+'% · '+sm.lowest+'%'],
-        ['Took it',sm.took+' / '+sm.students,sm.not_taken?sm.not_taken+' not yet':'everyone'],['Attempts',sm.attempts,'latest average '+sm.average_latest+'%']].map(([l,v,x])=><div className="stat" key={l}><b>{v}</b>{l}{x&&<small style={{display:'block',color:'var(--mut)'}}>{x}</small>}</div>)}</div>
-      <h3 className="sec">Spread of final scores</h3><Spread rows={sm.distribution} pass={d.pass_percent}/>
-      <p className="known">The final score is each student's best attempt. Strengths and the question analysis use each student's latest attempt, so a retake replaces the earlier result.</p></>}
-      {d.not_taken.length>0&&<><h3 className="sec">Not taken yet ({sm.not_taken})</h3><p className="known" style={{margin:0}}>{d.not_taken.map(x=>x.name).join(', ')}{sm.not_taken>d.not_taken.length?'…':''}</p></>}
-      <button className="btn ghost" onClick={()=>fetchFile(`/quizzes/${id}/results?format=csv`,'results-'+d.title.replace(/\s+/g,'_')+'.csv',toast)}>Download results CSV</button></>}
-    {tab==='students'&&<>{!d.students.length&&<p className="known">No results yet.</p>}
-      {d.students.map(x=><button key={x.user_id} className="row rowbtn" onClick={()=>setWho(x.user_id)}><div>{x.name}<PassPill ok={x.passed}/><small>Final {x.best}% · latest {x.latest}% · {pl(x.attempts,'attempt')} · {day(x.last_at)}</small>
-        {(x.strong.length>0||x.needs_study.length>0)&&<small>{x.strong.length>0&&'Good at: '+x.strong.join(', ')}{x.strong.length>0&&x.needs_study.length>0&&' · '}{x.needs_study.length>0&&'Revisit: '+x.needs_study.join(', ')}</small>}<Bar2 v={x.best}/></div><ChevronRight size={18}/></button>)}</>}
-    {tab==='questions'&&<><div className="seg" style={{gridTemplateColumns:'1fr 1fr',margin:'0 0 12px'}}>{[['order','In test order'],['hard','Hardest first']].map(([k,l])=><button key={k} className={sort===k?'on':''} aria-pressed={sort===k} onClick={()=>setSort(k)}>{l}</button>)}</div>
+  return <><Bar title={d.title} sub={tr('res.sub',{took:sm.took,students:sm.students})} back={back}/><div className="main">
+    <Tabs scroll label={tr('res.sections')} items={[['overview',tr('res.overview')],['students',tr('res.students')],['questions',tr('res.questions')],['areas',tr('res.strengths')]]} value={tab} onChange={setTab}/>
+    {tab==='overview'&&<>{!sm.took?<p className="known">{tr('res.nobody')}{d.published?'':' '+tr('res.draft')}</p>:<>
+      <div className="stats">{[[tr('res.avgFinal'),sm.average+'%'],[tr('res.passRate'),sm.pass_rate+'%',tr('res.passedOf',{passed:sm.passed,took:sm.took})],[tr('res.median'),sm.median+'%'],[tr('res.highLow'),sm.highest+'% · '+sm.lowest+'%'],
+        [tr('res.tookIt'),sm.took+' / '+sm.students,sm.not_taken?tr('res.notYetN',{n:sm.not_taken}):tr('res.everyone')],[tr('res.attempts'),sm.attempts,tr('res.latestAvg',{pct:sm.average_latest})]].map(([l,v,x])=><div className="stat" key={l}><b>{v}</b>{l}{x&&<small style={{display:'block',color:'var(--mut)'}}>{x}</small>}</div>)}</div>
+      <h3 className="sec">{tr('res.spread')}</h3><Spread rows={sm.distribution} pass={d.pass_percent}/>
+      <p className="known">{tr('res.finalNote')}</p></>}
+      {d.not_taken.length>0&&<><h3 className="sec">{tr('res.notTakenN',{n:sm.not_taken})}</h3><p className="known" style={{margin:0}}>{d.not_taken.map(x=>x.name).join(', ')}{sm.not_taken>d.not_taken.length?'…':''}</p></>}
+      <button className="btn ghost" onClick={()=>fetchFile(`/quizzes/${id}/results?format=csv`,'results-'+d.title.replace(/\s+/g,'_')+'.csv',toast)}>{tr('res.downloadCsv')}</button></>}
+    {tab==='students'&&<>{!d.students.length&&<p className="known">{tr('res.noResults')}</p>}
+      {d.students.map(x=><button key={x.user_id} className="row rowbtn" onClick={()=>setWho(x.user_id)}><div>{x.name}<PassPill ok={x.passed}/><small>{tr('res.finalLatest',{best:x.best,latest:x.latest})} · {tr(x.attempts===1?'quiz.attemptOne':'quiz.attemptMany',{n:x.attempts})} · {day(x.last_at)}</small>
+        {(x.strong.length>0||x.needs_study.length>0)&&<small>{x.strong.length>0&&tr('res.goodAt')+': '+x.strong.join(', ')}{x.strong.length>0&&x.needs_study.length>0&&' · '}{x.needs_study.length>0&&tr('res.revisit')+': '+x.needs_study.join(', ')}</small>}<Bar2 v={x.best}/></div><ChevronRight size={18}/></button>)}</>}
+    {tab==='questions'&&<><div className="seg" style={{gridTemplateColumns:'1fr 1fr',margin:'0 0 12px'}}>{[['order',tr('res.byOrder')],['hard',tr('res.hardest')]].map(([k,l])=><button key={k} className={sort===k?'on':''} aria-pressed={sort===k} onClick={()=>setSort(k)}>{l}</button>)}</div>
       {qs.map(x=>{const n=x.picks.reduce((a,b)=>a+b,0)+x.blank
-        return <div className="qbox" key={x.id}><b>Question {x.pos} · {x.percent==null?'no answers yet':x.percent+'% right'}{x.area?' · '+x.area:''}</b><div className="prose"><Md>{x.text}</Md></div><QImg src={x.image} alt={'Picture for question '+x.pos}/>
+        return <div className="qbox" key={x.id}><b>{tr('quiz.question',{n:x.pos})} · {x.percent==null?tr('res.noAnswers'):tr('res.pctRight',{pct:x.percent})}{x.area?' · '+x.area:''}</b><div className="prose"><Md>{x.text}</Md></div><QImg src={x.image} alt={tr('quiz.pictureQ',{n:x.pos})}/>
           {x.options.map((o,k)=>{const c=x.picks[k],pc=n?Math.round(100*c/n):0
-            return <div key={k} className="pick" title={`${LET[k]}: ${pl(c,'student')}`}><div className="pickh"><b className="olet">{LET[k]}</b><OptBody text={o} img={x.option_images[k]} k={k}/>{k===x.correct&&<span className="otag ok"><Check size={14}/> Correct</span>}<span className="pickn">{c} · {pc}%</span></div><div className="meter"><i style={{width:pc+'%'}} className={k===x.correct?'ok':''}/></div></div>})}
-          {x.picks_known>0&&x.blank>0&&<p className="known" style={{margin:'6px 0 0'}}>Left blank: {x.blank}</p>}
-          {x.total>x.picks_known&&<p className="known" style={{margin:'6px 0 0'}}>{x.total-x.picks_known} older {x.total-x.picks_known===1?'attempt does':'attempts do'} not record which answer was picked.</p>}</div>})}</>}
-    {tab==='areas'&&<>{!d.areas.length?<p className="known">No results yet.</p>:<><p className="known" style={{marginTop:0}}>Weakest first, from each student's latest attempt.</p>
-      {d.areas.map(a=><div className="row" key={a.title+(a.topic_id||'')}><div>{a.title}<small>{a.percent}% right · {a.strong} strong · {a.getting_there} getting there · {a.needs_study} need another round{a.unit?' · '+a.unit:''}</small><Bar2 v={a.percent}/></div></div>)}</>}</>}</div></>}
-function Gradebook({cid,back,toast,role}){
+            return <div key={k} className="pick" title={`${LET[k]}: ${tr(c===1?'res.studentOne':'res.studentMany',{n:c})}`}><div className="pickh"><b className="olet">{LET[k]}</b><OptBody text={o} img={x.option_images[k]} k={k}/>{k===x.correct&&<span className="otag ok"><Check size={14}/> {tr('res.correct')}</span>}<span className="pickn">{c} · {pc}%</span></div><div className="meter"><i style={{width:pc+'%'}} className={k===x.correct?'ok':''}/></div></div>})}
+          {x.picks_known>0&&x.blank>0&&<p className="known" style={{margin:'6px 0 0'}}>{tr('res.leftBlankN',{n:x.blank})}</p>}
+          {x.total>x.picks_known&&<p className="known" style={{margin:'6px 0 0'}}>{tr(x.total-x.picks_known===1?'res.olderOne':'res.olderMany',{n:x.total-x.picks_known})}</p>}</div>})}</>}
+    {tab==='areas'&&<>{!d.areas.length?<p className="known">{tr('res.noResults')}</p>:<><p className="known" style={{marginTop:0}}>{tr('res.weakest')}</p>
+      {d.areas.map(a=><div className="row" key={a.title+(a.topic_id||'')}><div>{a.title}<small>{tr('res.areaLine',{pct:a.percent,strong:a.strong,getting:a.getting_there,need:a.needs_study})}{a.unit?' · '+a.unit:''}</small><Bar2 v={a.percent}/></div></div>)}</>}</>}</div></>}
+function Gradebook({cid,back,toast,role}){const {t:tr}=useI18n();
   const [d,setD]=useState(null),[open,setOpen]=useState(null),[stu,setStu]=useState(null)
   useEffect(()=>{api(`/courses/${cid}/gradebook`).then(setD).catch(e=>{toast(e.message);back()})},[cid])
   if(open)return <QuizResults id={open} back={()=>setOpen(null)} toast={toast} role={role}/>
   if(stu)return stu.quiz?<MyAttempts quiz={stu.quiz} user={stu.id} back={()=>setStu({...stu,quiz:null})} toast={toast} role={role}/>
-    :<><Bar title={stu.name} sub={d.course+' · final '+(stu.final==null?'–':stu.final+'%')} back={()=>setStu(null)}/><div className="main">{d.tests.map((t,i)=><button key={t.id} className="row rowbtn" disabled={stu.scores[i]==null} onClick={()=>setStu({...stu,quiz:t.id})}><div>{t.title}{stu.scores[i]!=null&&<PassPill ok={stu.scores[i]>=t.pass_percent}/>}<small>{t.unit||'Course test'} · {stu.scores[i]==null?'not taken':'final '+stu.scores[i]+'%'} · pass {t.pass_percent}%</small>{stu.scores[i]!=null&&<Bar2 v={stu.scores[i]}/>}</div>{stu.scores[i]!=null&&<ChevronRight size={18}/>}</button>)}</div></>
-  if(!d)return <><Bar title="Gradebook" back={back}/><div className="main"><Skeleton/></div></>
-  return <><Bar title="Gradebook" sub={d.course+' · '+pl(d.tests.length,'test')} back={back}/><div className="main">
-    {!d.tests.length?<p className="known">No published tests or quizzes in this course yet.</p>:<>
-    <p className="known" style={{marginTop:0}}>Each cell is a student's final (best) score. The final course score is the average of the tests they took. Tap a student or a test to drill down.</p>
-    <div className="gbwrap"><table className="gb"><thead><tr><th>Student</th>{d.tests.map(t=><th key={t.id}><button className="tool" onClick={()=>setOpen(t.id)} title={t.unit||'Course test'}>{t.title}</button><small>avg {t.average??'–'}%</small></th>)}<th>Final</th></tr></thead>
+    :<><Bar title={stu.name} sub={tr('gb.subFinal',{course:d.course,final:stu.final==null?'–':stu.final+'%'})} back={()=>setStu(null)}/><div className="main">{d.tests.map((t,i)=><button key={t.id} className="row rowbtn" disabled={stu.scores[i]==null} onClick={()=>setStu({...stu,quiz:t.id})}><div>{t.title}{stu.scores[i]!=null&&<PassPill ok={stu.scores[i]>=t.pass_percent}/>}<small>{t.unit||tr('gb.courseTest')} · {stu.scores[i]==null?tr('gb.notTaken'):tr('gb.finalN',{pct:stu.scores[i]})} · {tr('gb.pass',{pct:t.pass_percent})}</small>{stu.scores[i]!=null&&<Bar2 v={stu.scores[i]}/>}</div>{stu.scores[i]!=null&&<ChevronRight size={18}/>}</button>)}</div></>
+  if(!d)return <><Bar title={tr('gb.title')} back={back}/><div className="main"><Skeleton/></div></>
+  return <><Bar title={tr('gb.title')} sub={d.course+' · '+tr(d.tests.length===1?'gb.testOne':'gb.testMany',{n:d.tests.length})} back={back}/><div className="main">
+    {!d.tests.length?<p className="known">{tr('gb.none')}</p>:<>
+    <p className="known" style={{marginTop:0}}>{tr('gb.intro')}</p>
+    <div className="gbwrap"><table className="gb"><thead><tr><th>{tr('gb.student')}</th>{d.tests.map(t=><th key={t.id}><button className="tool" onClick={()=>setOpen(t.id)} title={t.unit||tr('gb.courseTest')}>{t.title}</button><small>{tr('gb.avg',{pct:(t.average??'–')+'%'})}</small></th>)}<th>{tr('gb.final')}</th></tr></thead>
       <tbody>{d.students.map(r=><tr key={r.user_id}><td><button className="tool" onClick={()=>setStu(r)}>{r.name}</button></td>{r.scores.map((v,i)=><td key={i} className={v==null?'na':v>=d.tests[i].pass_percent?'':'low'}>{v==null?'–':v+'%'}</td>)}<td><b>{r.final==null?'–':r.final+'%'}</b><small>{r.taken}/{d.tests.length}</small></td></tr>)}</tbody></table></div>
-    <p className="known">A dash means not taken. Scores below a test's pass mark are marked with a lighter background.</p>
-    <button className="btn ghost" onClick={()=>fetchFile(`/courses/${cid}/gradebook?format=csv`,'gradebook-'+d.course.replace(/\s+/g,'_')+'.csv',toast)}>Download gradebook CSV</button></>}</div></>}
-function ScoreCourse({c,back,toast,role}){  // one course of a student's scores: each test, then its attempts
+    <p className="known">{tr('gb.dash')}</p>
+    <button className="btn ghost" onClick={()=>fetchFile(`/courses/${cid}/gradebook?format=csv`,'gradebook-'+d.course.replace(/\s+/g,'_')+'.csv',toast)}>{tr('gb.downloadCsv')}</button></>}</div></>}
+function ScoreCourse({c,back,toast,role}){const {t:tr}=useI18n();  // one course of a student's scores: each test, then its attempts
   const [q,setQ]=useState(null)
   if(q)return <MyAttempts quiz={q} back={()=>setQ(null)} toast={toast} role={role}/>
-  return <><Bar title={c.course} sub={'Final score '+(c.final==null?'–':c.final+'%')+' · '+c.taken+' of '+c.tests.length+' taken'} back={back}/><div className="main">
-    {c.tests.map(t=><button key={t.id} className="row rowbtn" disabled={!t.attempts} onClick={()=>setQ(t.id)}><div>{t.title}{t.attempts>0&&<PassPill ok={t.passed}/>}<small>{t.unit||'Course test'} · {t.attempts?`best ${t.best}% · latest ${t.latest}% · ${pl(t.attempts,'attempt')}`:'not taken yet'} · pass {t.pass_percent}%</small>{t.attempts>0&&<Bar2 v={t.best}/>}</div>{t.attempts>0&&<ChevronRight size={18}/>}</button>)}
-    <p className="known">Your final score in a test is your best attempt. The course score is the average of the tests you have taken.</p></div></>}
-function MyScores({onCourse}){  // a student's final score per course
+  return <><Bar title={c.course} sub={tr('gb.scoreSub',{final:c.final==null?'–':c.final+'%',taken:c.taken,n:c.tests.length})} back={back}/><div className="main">
+    {c.tests.map(t=><button key={t.id} className="row rowbtn" disabled={!t.attempts} onClick={()=>setQ(t.id)}><div>{t.title}{t.attempts>0&&<PassPill ok={t.passed}/>}<small>{t.unit||tr('gb.courseTest')} · {t.attempts?tr('gb.bestLatest',{best:t.best,latest:t.latest,count:tr(t.attempts===1?'quiz.attemptOne':'quiz.attemptMany',{n:t.attempts})}):tr('gb.notTakenYet')} · {tr('gb.pass',{pct:t.pass_percent})}</small>{t.attempts>0&&<Bar2 v={t.best}/>}</div>{t.attempts>0&&<ChevronRight size={18}/>}</button>)}
+    <p className="known">{tr('gb.scoreNote')}</p></div></>}
+function MyScores({onCourse}){const {t:tr}=useI18n();  // a student's final score per course
   const [d,setD]=useState(null)
   useEffect(()=>{api('/me/scores').then(setD).catch(()=>setD({courses:[]}))},[])
   if(!d||!d.courses.length)return null
-  return <><h3 className="sec first">Scores</h3>{d.courses.map(x=><button key={x.course_id} className="row rowbtn" onClick={()=>onCourse(x)}><div>{x.course}<small>{x.final==null?'No tests taken yet':'Final score '+x.final+'%'} · {x.taken} of {x.tests.length} taken · {x.passed} passed</small>{x.final!=null&&<Bar2 v={x.final}/>}</div><ChevronRight size={18}/></button>)}</>}
+  return <><h3 className="sec first">{tr('gb.scores')}</h3>{d.courses.map(x=><button key={x.course_id} className="row rowbtn" onClick={()=>onCourse(x)}><div>{x.course}<small>{x.final==null?tr('gb.noneTaken'):tr('gb.finalScore',{pct:x.final})} · {tr('gb.takenOf',{taken:x.taken,n:x.tests.length})} · {tr('gb.passedN',{n:x.passed})}</small>{x.final!=null&&<Bar2 v={x.final}/>}</div><ChevronRight size={18}/></button>)}</>}
 function BankSheet({close,onAdd,toast}){const {t:tr}=useI18n();
   const confirm=useConfirm()
   const [q,setQ]=useState(''),[tag,setTag]=useState(''),[mine,setMine]=useState(false),[d,setD]=useState(null),[sel,setSel]=useState({}),[n,setN]=useState(0)
