@@ -45,7 +45,6 @@ const ownerLine=(c,tr)=>c.mine?tr('learn.yourCourse'):c.owner_problem||(c.owner?
 const useFaculty=on=>{const [l,setL]=useState([]);useEffect(()=>{if(on)api('/admin/users?role=faculty&limit=100').then(r=>setL(r.items.filter(u=>u.active))).catch(()=>{})},[on]);return l}
 
 const pl=(n,w)=>`${n} ${w}${n===1?'':'s'}`
-const matches=n=>`${n} ${n===1?'match':'matches'}`
 const Ctx=createContext({})
 const THEMES=[['system',Monitor,'theme.system'],['light',Sun,'theme.light'],['dark',Moon,'theme.dark']]
 const readTheme=()=>{try{return localStorage.theme||'system'}catch{return 'system'}}
@@ -808,7 +807,7 @@ function BulkSheet({act,ids,progs,toast,close,done}){const {t:tr}=useI18n();
   const run=async()=>{setBusy(true);try{done(await api('/admin/users/bulk',{method:'POST',body:{ids,action:act.kind,...(act.kind==='set_placement'?{program_id:+p,semester:s?+s:null}:{})}}))}catch(e){toast(e.message);setBusy(false)}}
   if(act.kind==='set_placement')return <Sheet close={close}><h3>Move {pl(ids.length,'user')}</h3><p className="known">Sets the program and semester, year or grade of the selected students. Faculty and admins in the selection are skipped.</p>
     <label htmlFor="bp">Program</label><select id="bp" value={p} onChange={e=>{const id=e.target.value;setP(id);if(+s>semsOf(progs,id).length)setS('')}}><option value="">Choose a program</option>{progs.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select>
-    <label htmlFor="bs">{termOf(progs,p)}</label><select id="bs" value={s} onChange={e=>setS(e.target.value)}><option value="">Not set</option>{semsOf(progs,p).map(n=><option key={n} value={n}>{termOf(progs,p)} {n}</option>)}</select>
+    <label htmlFor="bs">{termOf(progs,p)}</label><select id="bs" value={s} onChange={e=>setS(e.target.value)}><option value="">{tr('users.notSet')}</option>{semsOf(progs,p).map(n=><option key={n} value={n}>{termOf(progs,p)} {n}</option>)}</select>
     <button className="btn" disabled={busy||!p} onClick={run}>{busy?'Working…':'Move'}</button><button className="btn ghost" onClick={close}>Cancel</button></Sheet>
   const [t,d,l]=BULK_TEXT[act.kind]
   return <Sheet close={close}><h3>{t.replace('these',ids.length===1?'this':'these')}</h3><p className="known">{pl(ids.length,'account')} selected. {d}</p>
@@ -825,81 +824,81 @@ function Users({toast,me}){const {t:tr}=useI18n();
   const commit=async()=>{try{setBulk({...bulk,stage:'done',res:await api('/admin/users/import',{method:'POST',body:{csv:bulk.text,dry_run:false}})});load()}catch(e){toast(e.message)}}
   const cell=v=>'"'+String(v).replace(/"/g,'""')+'"',r=bulk?.res,filtered=q||prog||sem,lab=prog?termOf(progs,prog):progs.every(x=>x.term==='Semester')?'Semester':progs.length&&progs.every(x=>x.term==='Grade')?'Grade':'Term'
   if(view)return <UserDetail id={view} me={me} progs={progs} toast={toast} back={()=>{setView(null);load()}}/>
-  return <><Bar title="Users" sub={filtered?matches(total):pl(total,'account')}/><div className="main">
-    <div className="search"><Search size={18}/><input type="search" aria-label="Search users" placeholder="Search name, email, ID, program, semester, year or grade" value={q} onChange={e=>setQ(e.target.value)}/></div>
+  return <><Bar title={tr('nav.users')} sub={filtered?tr(total===1?'rs.matchOne':'rs.matchMany',{n:total}):tr(total===1?'users.oneAccount':'users.manyAccounts',{n:total})}/><div className="main">
+    <div className="search"><Search size={18}/><input type="search" aria-label={tr('users.search')} placeholder={tr('users.searchPh')} value={q} onChange={e=>setQ(e.target.value)}/></div>
     <div className="filters">
-      <select aria-label="Filter by program" value={prog} onChange={e=>{const id=e.target.value;setProg(id);if(+sem>semsOf(progs,id).length)setSem('')}}><option value="">All programs</option>{progs.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select>
-      <select aria-label="Filter by semester, year or grade" value={sem} onChange={e=>setSem(e.target.value)}><option value="">{lab==='Term'?'All terms':'All '+lab.toLowerCase()+'s'}</option>{semsOf(progs,prog).map(n=><option key={n} value={n}>{lab} {n}</option>)}</select>
-      <select aria-label="Sort by" value={order} onChange={e=>setOrder(e.target.value)}><option value="role">Sort: role, then name</option><option value="name">Sort: name</option><option value="program">Sort: program</option><option value="semester">Sort: {lab.toLowerCase()}</option><option value="newest">Sort: newest first</option></select></div>
-    <div className="two"><button className="btn" onClick={()=>setEd({})}>New user</button><button className="btn ghost" onClick={()=>setBulk({stage:'pick'})}>Bulk upload</button></div>
-    <button className="btn ghost" style={{marginTop:10}} aria-pressed={selMode} onClick={()=>{setSelMode(!selMode);setSel([])}}>{selMode?'Done selecting':'Select several users'}</button>
-    {selMode&&items.length>0&&<div className="selbar"><button className="tool" onClick={()=>setSel(items.map(u=>u.id))}>Select all {items.length} shown</button>{sel.length>0&&<button className="tool" onClick={()=>setSel([])}>Clear</button>}</div>}
+      <select aria-label={tr('users.filterProgram')} value={prog} onChange={e=>{const id=e.target.value;setProg(id);if(+sem>semsOf(progs,id).length)setSem('')}}><option value="">{tr('users.allPrograms')}</option>{progs.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select>
+      <select aria-label={tr('users.filterTerm')} value={sem} onChange={e=>setSem(e.target.value)}><option value="">{lab==='Term'?tr('users.allTerms'):tr('users.allTermsOf',{term:lab.toLowerCase()})}</option>{semsOf(progs,prog).map(n=><option key={n} value={n}>{lab} {n}</option>)}</select>
+      <select aria-label="Sort by" value={order} onChange={e=>setOrder(e.target.value)}><option value="role">{tr('users.sortRole')}</option><option value="name">{tr('prog.sortName')}</option><option value="program">{tr('users.sortProgram')}</option><option value="semester">Sort: {lab.toLowerCase()}</option><option value="newest">Sort: newest first</option></select></div>
+    <div className="two"><button className="btn" onClick={()=>setEd({})}>{tr('users.newUser')}</button><button className="btn ghost" onClick={()=>setBulk({stage:'pick'})}>{tr('prog.bulk')}</button></div>
+    <button className="btn ghost" style={{marginTop:10}} aria-pressed={selMode} onClick={()=>{setSelMode(!selMode);setSel([])}}>{selMode?tr('users.doneSelecting'):tr('users.selectMany')}</button>
+    {selMode&&items.length>0&&<div className="selbar"><button className="tool" onClick={()=>setSel(items.map(u=>u.id))}>{tr('users.selectAll',{n:items.length})}</button>{sel.length>0&&<button className="tool" onClick={()=>setSel([])}>{tr('users.clear')}</button>}</div>}
     <div style={{height:14}}/>
-    {items.length>0&&<div className="uhead" aria-hidden="true"><span>Name</span><span>Program</span><span>{lab==='Semester'?'Sem':lab}</span></div>}
+    {items.length>0&&<div className="uhead" aria-hidden="true"><span>{tr('sheet.name')}</span><span>{tr('users.program')}</span><span>{lab==='Semester'?'Sem':lab}</span></div>}
     {items.map(u=><button key={u.id} className={'utr'+(selMode?' sel':'')+(sel.includes(u.id)?' on':'')} onClick={()=>selMode?setSel(sel.includes(u.id)?sel.filter(i=>i!==u.id):[...sel,u.id]):setView(u.id)} aria-label={(selMode?(sel.includes(u.id)?'Deselect ':'Select '):'Open ')+u.name} aria-pressed={selMode?sel.includes(u.id):undefined}>
       <span className="nm">{selMode&&<span className="tick" aria-hidden="true">{sel.includes(u.id)&&<Check size={14}/>}</span>}<span className="dot" style={{background:COL[u.id%5]}}>{(u.name||'?')[0]}</span><span className="tx"><b>{u.name}</b>{(u.role!=='student'||!u.active||u.self_registered)&&<span className="tags">{u.role!=='student'&&<span className="pill">{u.role==='admin'?'Admin':'Faculty'}</span>}{u.self_registered&&<span className="pill">Self-registered</span>}{!u.active&&<span className="pill off">Disabled</span>}</span>}</span></span>
       <span className="pg">{u.program||'—'}</span><span className="sn">{u.semester||'—'}</span></button>)}
-    {!items.length&&<p className="known">{filtered?'No one matches that search.':'No users yet.'}</p>}
+    {!items.length&&<p className="known">{filtered?tr('users.noMatch'):tr('users.noneYet')}</p>}
     {items.length<total&&<ShowMore left={total-items.length} onClick={more}/>}
     <input ref={fileRef} type="file" accept=".csv,.txt,text/csv" hidden onChange={pick}/></div>
-    {selMode&&sel.length>0&&<div className="actbar" role="toolbar" aria-label="Actions for selected users"><b>{sel.length} selected</b>
-      <button className="tool" onClick={()=>setAct({kind:'set_placement'})}>Move…</button><button className="tool" onClick={()=>setAct({kind:'disable'})}>Disable</button><button className="tool" onClick={()=>setAct({kind:'enable'})}>Enable</button><button className="tool" onClick={()=>setAct({kind:'reset_passwords'})}>Reset passwords</button></div>}
+    {selMode&&sel.length>0&&<div className="actbar" role="toolbar" aria-label={tr('users.actions')}><b>{tr('users.selected',{n:sel.length})}</b>
+      <button className="tool" onClick={()=>setAct({kind:'set_placement'})}>{tr('users.move')}</button><button className="tool" onClick={()=>setAct({kind:'disable'})}>{tr('users.disable')}</button><button className="tool" onClick={()=>setAct({kind:'enable'})}>{tr('users.enable')}</button><button className="tool" onClick={()=>setAct({kind:'reset_passwords'})}>Reset passwords</button></div>}
     {act&&<BulkSheet act={act} ids={sel} progs={progs} toast={toast} close={()=>setAct(null)} done={r=>{setAct({kind:'result',r});setSel([]);load()}}/>}
     {ed&&<UserSheet u={ed} me={me} progs={progs} toast={toast} close={()=>setEd(null)} done={()=>{setEd(null);load()}}/>}
     {bulk&&<Sheet close={()=>setBulk(null)}>
-      {bulk.stage==='pick'&&<><h3>Bulk upload users</h3><p className="known">One row per person with the columns name, email, password, role, program and semester (the year number for annual programs such as M.B.B.S). Leave the password blank to generate one. Role is student or admin and defaults to student. Program must match a name on the Programs tab, and semester is a number from 1 to 8. Emails that already exist are updated, and blank program or semester cells leave the current value alone.</p>
-        <button className="btn ghost" onClick={()=>download('users-template.csv',USER_TEMPLATE)}>Download template</button><button className="btn" onClick={()=>fileRef.current.click()}>Choose CSV file</button></>}
-      {bulk.stage==='preview'&&<><h3>Ready to upload</h3><p className="known">{r.valid_rows} of {r.rows} rows are valid: {r.created} new, {r.updated} updated.{r.generated>0&&` ${r.generated} passwords will be generated.`}</p>
+      {bulk.stage==='pick'&&<><h3>{tr('users.bulkTitle')}</h3><p className="known">One row per person with the columns name, email, password, role, program and semester (the year number for annual programs such as M.B.B.S). Leave the password blank to generate one. Role is student or admin and defaults to student. Program must match a name on the Programs tab, and semester is a number from 1 to 8. Emails that already exist are updated, and blank program or semester cells leave the current value alone.</p>
+        <button className="btn ghost" onClick={()=>download('users-template.csv',USER_TEMPLATE)}>{tr('prog.template')}</button><button className="btn" onClick={()=>fileRef.current.click()}>{tr('prog.chooseCsv')}</button></>}
+      {bulk.stage==='preview'&&<><h3>{tr('prog.ready')}</h3><p className="known">{tr('users.validRows',{a:r.valid_rows,b:r.rows,created:r.created,updated:r.updated})}{r.generated>0&&' '+tr('users.genPasswords',{n:r.generated})}</p>
         {r.error_count>0&&<div className="prose" style={{maxHeight:'28vh',overflow:'auto',fontSize:14}}><b>{tr('prog.skipped',{n:r.error_count})}</b>{r.errors.map(e=><div key={e.row}>{tr('prog.rowErr',{row:e.row,error:e.error})}</div>)}</div>}
         <button className="btn" disabled={!r.valid_rows} onClick={commit}>{tr('prog.uploadRows',{n:r.valid_rows})}</button><button className="btn ghost" onClick={()=>setBulk(null)}>{tr('common.cancel')}</button></>}
-      {bulk.stage==='done'&&<><h3>Upload complete</h3><p className="known">{r.created} users created, {r.updated} updated.{r.credentials.length>0&&' Download the generated passwords now. They are not shown again.'}</p>
-        {r.credentials.length>0&&<button className="btn" onClick={()=>download('new-user-passwords.csv','name,email,password\n'+r.credentials.map(c=>[c.name,c.email,c.password].map(cell).join(',')).join('\n')+'\n')}>Download passwords</button>}
+      {bulk.stage==='done'&&<><h3>{tr('prog.complete')}</h3><p className="known">{tr('users.uploadDone',{created:r.created,updated:r.updated})}{r.credentials.length>0&&' '+tr('users.credsNote')}</p>
+        {r.credentials.length>0&&<button className="btn" onClick={()=>download('new-user-passwords.csv','name,email,password\n'+r.credentials.map(c=>[c.name,c.email,c.password].map(cell).join(',')).join('\n')+'\n')}>{tr('users.downloadPw')}</button>}
         <button className="btn ghost" onClick={()=>setBulk(null)}>{tr('common.close')}</button></>}
     </Sheet>}</>}
 
-function UserDetail({id,me,progs,back,toast}){
+function UserDetail({id,me,progs,back,toast}){const {t:tr}=useI18n();
   const [u,setU]=useState(null),[ed,setEd]=useState(false),[ask,setAsk]=useState(false),[pw,setPw]=useState(null),[busy,setBusy]=useState(false),[asg,setAsg]=useState(null),[ctree,setCtree]=useState([])
   const load=()=>api('/admin/users/'+id).then(setU).catch(e=>{toast(e.message);back()})
   useEffect(()=>{load()},[id]);useEffect(()=>{if(u?.role==='faculty')api('/tree').then(setCtree)},[u?.role])
-  if(!u)return <><Bar title="Loading" back={back}/><div className="main"><div className="sk"/><div className="sk"/></div></>
+  if(!u)return <><Bar title={tr('common.loading')} back={back}/><div className="main"><div className="sk"/><div className="sk"/></div></>
   const reset=async()=>{setBusy(true);try{const r=await api(`/admin/users/${u.id}/reset-password`,{method:'POST'});setAsk(false);setPw(r.password)}catch(e){toast(e.message)}setBusy(false)}
-  const copy=async()=>{try{await navigator.clipboard.writeText(pw);toast('Copied')}catch{toast('Press and hold the password to copy it')}}
+  const copy=async()=>{try{await navigator.clipboard.writeText(pw);toast(tr('users.copied'))}catch{toast(tr('users.copyHint'))}}
   const row=(v,l)=><div className="row"><div>{v}<small>{l}</small></div></div>
   const allCourses=ctree.flatMap(p=>p.semesters.flatMap(s=>s.courses.filter(c=>!c.shared).map(c=>({id:c.id,owner_id:c.owner_id,owner:c.owner,label:`${p.name} › ${s.name} › ${c.name}`}))))
   const saveAsg=async()=>{try{await api(`/admin/users/${u.id}/courses`,{method:'PUT',body:{course_ids:asg}});toast('Courses updated');setAsg(null);load()}catch(e){toast(e.message)}}
   return <><Bar title={u.name} sub={u.email} back={back}/><div className="main">
-    <div className="stats"><div className="stat"><b>{u.topics_read}</b>Topics read</div><div className="stat"><b>{u.reads}</b>Total reads</div></div>
-    <h3 className="sec">Profile</h3>
-    {row({admin:'Admin',faculty:'Faculty'}[u.role]||'Student','Role')}{row(u.active?'Active':'Disabled','Status')}{row(u.program||'Not set','Program')}{row(u.semester||'Not set',termOf(progs,u.program_id))}{u.self_registered&&<>{row(u.institution||'—','Institution')}{row(u.id_number||'—','ID number')}{row(u.phone||'—','Phone')}{row(u.own_ai_key?'Has added their own key':'No key yet · AI is off for them','AI (self-registered, uses their own key)')}</>}{row(day(u.last_active),'Last active')}
+    <div className="stats"><div className="stat"><b>{u.topics_read}</b>{tr('users.topicsRead')}</div><div className="stat"><b>{u.reads}</b>{tr('users.totalReads')}</div></div>
+    <h3 className="sec">{tr('users.profile')}</h3>
+    {row({admin:tr('users.roleAdmin'),faculty:tr('users.roleFaculty')}[u.role]||tr('users.roleStudent'),tr('users.role'))}{row(u.active?tr('users.active'):tr('users.disabled'),tr('users.status'))}{row(u.program||tr('users.notSet'),tr('users.program'))}{row(u.semester||tr('users.notSet'),termOf(progs,u.program_id))}{u.self_registered&&<>{row(u.institution||'—','Institution')}{row(u.id_number||'—','ID number')}{row(u.phone||'—','Phone')}{row(u.own_ai_key?'Has added their own key':'No key yet · AI is off for them','AI (self-registered, uses their own key)')}</>}{row(day(u.last_active),'Last active')}
     {u.role==='faculty'&&<><h3 className="sec">Courses they own</h3>{(u.course_ids||[]).length?allCourses.filter(c=>u.course_ids.includes(c.id)).map(c=><div className="row" key={c.id}><div>{c.label}</div></div>):<p className="known">None yet. They can read published content but edit nothing until they own a course.</p>}<button className="btn ghost" onClick={()=>setAsg([...(u.course_ids||[])])}>Assign courses</button></>}
-    <h3 className="sec">Recently read</h3>
-    {u.recent.length?u.recent.map((x,i)=><div className="row" key={i}><div>{x.title}<small>{x.reads} reads, last {day(x.last_read)}</small></div></div>):<p className="known">No reading activity yet.</p>}
-    <div className="two"><button className="btn ghost" onClick={()=>setEd(true)}>Edit</button><button className="btn" onClick={()=>setAsk(true)}>Reset password</button></div></div>
+    <h3 className="sec">{tr('users.recentlyRead')}</h3>
+    {u.recent.length?u.recent.map((x,i)=><div className="row" key={i}><div>{x.title}<small>{tr('users.readsLast',{n:x.reads,day:day(x.last_read)})}</small></div></div>):<p className="known">{tr('users.noReading')}</p>}
+    <div className="two"><button className="btn ghost" onClick={()=>setEd(true)}>{tr('common.edit')}</button><button className="btn" onClick={()=>setAsk(true)}>{tr('users.resetPw')}</button></div></div>
     {ed&&<UserSheet u={u} me={me} progs={progs} toast={toast} close={()=>setEd(false)} done={()=>{setEd(false);load()}}/>}
-    {ask&&<Sheet close={()=>setAsk(false)}><h3>Reset password?</h3><p className="known">This gives {u.name} a new password and replaces the old one straight away. You will see the new password once.</p>
-      <button className="btn danger" disabled={busy} onClick={reset}>Reset password</button><button className="btn ghost" onClick={()=>setAsk(false)}>Cancel</button></Sheet>}
-    {pw&&<Sheet close={()=>setPw(null)}><h3>New password</h3><p className="known">Share this with {u.name} now. It is not shown again.</p><div className="pw">{pw}</div>
-      <button className="btn" onClick={copy}>Copy password</button><button className="btn ghost" onClick={()=>setPw(null)}>Done</button></Sheet>}
+    {ask&&<Sheet close={()=>setAsk(false)}><h3>{tr('users.resetTitle')}</h3><p className="known">{tr('users.resetBody',{name:u.name})}</p>
+      <button className="btn danger" disabled={busy} onClick={reset}>{tr('users.resetPw')}</button><button className="btn ghost" onClick={()=>setAsk(false)}>Cancel</button></Sheet>}
+    {pw&&<Sheet close={()=>setPw(null)}><h3>{tr('users.newPw')}</h3><p className="known">{tr('users.shareNow',{name:u.name})}</p><div className="pw">{pw}</div>
+      <button className="btn" onClick={copy}>{tr('users.copyPw')}</button><button className="btn ghost" onClick={()=>setPw(null)}>{tr('users.done')}</button></Sheet>}
     {asg&&<Sheet close={()=>setAsg(null)}><h3>Courses {u.name} owns</h3><p className="known">The owner adds and edits the units, topics and quizzes of a course. Each course has one owner, so ticking a course another person owns moves it to {u.name}.</p>{allCourses.map(c=><label key={c.id} className="chk"><input type="checkbox" checked={asg.includes(c.id)} onChange={e=>setAsg(e.target.checked?[...asg,c.id]:asg.filter(i=>i!==c.id))}/> {c.label}{c.owner_id&&c.owner_id!==u.id?` (now ${c.owner})`:''}</label>)}<button className="btn" onClick={saveAsg}>Save</button><button className="btn ghost" onClick={()=>setAsg(null)}>Cancel</button></Sheet>}</>}
 
-function UserSheet({u,me,progs,close,done,toast}){
+function UserSheet({u,me,progs,close,done,toast}){const {t:tr}=useI18n();
   const isNew=!u.id,self=u.id===me.id,[busy,setBusy]=useState(false)
   const [f,setF]=useState({name:u.name||'',email:u.email||'',role:u.role||'student',active:u.active??true,password:'',program_id:u.program_id||'',semester:u.semester||''}),set=k=>e=>setF({...f,[k]:e.target.value})
   const save=async()=>{setBusy(true);try{
     const enrol={program_id:f.program_id?+f.program_id:null,semester:f.semester?+f.semester:null}
     if(isNew)await api('/admin/users',{method:'POST',body:{...f,...enrol}})
     const r=isNew?null:await api('/admin/users/'+u.id,{method:'PATCH',body:{name:f.name,email:f.email,...enrol,...(self?{}:{role:f.role,active:f.active})}})
-    toast(isNew?'User added':r.courses_needing_owner?`Saved. ${r.courses_needing_owner} course(s) they own need a new owner.`:'Changes saved');done()}catch(e){toast(e.message)}setBusy(false)}
-  return <Sheet close={close}><h3>{isNew?'New user':'Edit user'}</h3>
-    <label>Name</label><input value={f.name} onChange={set('name')}/><label>Email</label><input type="email" value={f.email} onChange={set('email')}/>
-    <label>Program</label><select value={f.program_id} onChange={e=>{const id=e.target.value;setF({...f,program_id:id,semester:+f.semester>semsOf(progs,id).length?'':f.semester})}}><option value="">Not set</option>{progs.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select>
-    <label>{termOf(progs,f.program_id)}</label><select value={f.semester} onChange={set('semester')}><option value="">Not set</option>{semsOf(progs,f.program_id).map(n=><option key={n} value={n}>{n}</option>)}</select>
-    <label>Role</label><select disabled={self} value={f.role} onChange={set('role')}><option value="student">Student</option><option value="faculty">Faculty</option><option value="admin">Admin</option></select>
-    <label>Status</label><select disabled={self} value={f.active?'1':'0'} onChange={e=>setF({...f,active:e.target.value==='1'})}><option value="1">Active</option><option value="0">Disabled</option></select>
-    {isNew?<><label>Password (8+ characters)</label><input type="password" autoComplete="new-password" value={f.password} onChange={set('password')}/></>
-      :<p className="known" style={{marginTop:14}}>To give this person a new password, use Reset password on their page.</p>}
-    {self&&<p className="known">You can't change your own role or status.</p>}
-    <button className="btn" disabled={busy} onClick={save}>{isNew?'Add user':'Save changes'}</button></Sheet>}
+    toast(isNew?tr('users.added'):r.courses_needing_owner?tr('users.needOwner',{n:r.courses_needing_owner}):tr('topic.changesSaved'));done()}catch(e){toast(e.message)}setBusy(false)}
+  return <Sheet close={close}><h3>{isNew?tr('users.newUser'):tr('users.editUser')}</h3>
+    <label>{tr('sheet.name')}</label><input value={f.name} onChange={set('name')}/><label>{tr('users.email')}</label><input type="email" value={f.email} onChange={set('email')}/>
+    <label>{tr('users.program')}</label><select value={f.program_id} onChange={e=>{const id=e.target.value;setF({...f,program_id:id,semester:+f.semester>semsOf(progs,id).length?'':f.semester})}}><option value="">{tr('users.notSet')}</option>{progs.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select>
+    <label>{termOf(progs,f.program_id)}</label><select value={f.semester} onChange={set('semester')}><option value="">{tr('users.notSet')}</option>{semsOf(progs,f.program_id).map(n=><option key={n} value={n}>{n}</option>)}</select>
+    <label>{tr('users.role')}</label><select disabled={self} value={f.role} onChange={set('role')}><option value="student">{tr('users.roleStudent')}</option><option value="faculty">{tr('users.roleFaculty')}</option><option value="admin">{tr('users.roleAdmin')}</option></select>
+    <label>{tr('users.status')}</label><select disabled={self} value={f.active?'1':'0'} onChange={e=>setF({...f,active:e.target.value==='1'})}><option value="1">{tr('users.active')}</option><option value="0">{tr('users.disabled')}</option></select>
+    {isNew?<><label>{tr('users.passwordNew')}</label><input type="password" autoComplete="new-password" value={f.password} onChange={set('password')}/></>
+      :<p className="known" style={{marginTop:14}}>{tr('users.useReset')}</p>}
+    {self&&<p className="known">{tr('users.selfNote')}</p>}
+    <button className="btn" disabled={busy} onClick={save}>{isNew?tr('users.addUser'):tr('topic.saveChanges')}</button></Sheet>}
 
 function Programs({toast,onOpen}){const {t:tr}=useI18n();
   const [items,setItems]=useState([]),[total,setTotal]=useState(0),[q,setQ]=useState(''),[order,setOrder]=useState('name'),[status,setStatus]=useState('active')
