@@ -38,7 +38,6 @@ B.E. Mechanical Engineering,Semester 3,Thermodynamics,Unit 1: Basic concepts,Fir
 const COL=['#3d63c9','#2b8a7e','#a86a2a','#7655b3','#3b7ea6']
 const when=iso=>new Date(iso).toLocaleString(undefined,{day:'numeric',month:'short',year:'numeric',hour:'numeric',minute:'2-digit'})  // shown in the viewer's own time zone
 const localInput=iso=>{if(!iso)return '';const d=new Date(iso),z=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())}T${z(d.getHours())}:${z(d.getMinutes())}`}
-const STATUS={not_started:'Not started',in_progress:'In progress',completed:'Completed'}
 const doneOf=ts=>`${ts.filter(x=>x.status==='completed').length} / ${ts.length}`  // worked out from each topic's state, never stored
 const STATUS_KEY={not_started:'status.notStarted',in_progress:'status.inProgress',completed:'status.completed'}
 const Mark=({s})=>{const {t:tr}=useI18n();return s==='completed'?<Check className="done" aria-label={tr('status.completed')}/>:<span className="st" aria-label={tr(STATUS_KEY[s])}>{s==='in_progress'?'●':'—'}</span>}
@@ -652,7 +651,7 @@ function CopySheet({kind,id,title,close,toast}){
       {kind==='topic'&&dest&&<><label htmlFor="cu">Unit</label><select id="cu" value={uid} onChange={e=>setUid(e.target.value)}><option value="">Choose a unit</option>{dest.units.map(u=><option key={u.id} value={u.id}>{u.name}</option>)}</select>{!dest.units.length&&<p className="known">That course has no units yet. Add a unit first.</p>}</>}
       {kind==='unit'&&<label className="chk"><input type="checkbox" checked={wq} onChange={e=>setWq(e.target.checked)}/> Include its quizzes (as drafts)</label>}</>}
     <button className="btn" disabled={busy||!dest||(kind==='topic'&&!uid)} onClick={run}>{busy?'Copying…':'Copy'}</button><button className="btn ghost" onClick={close}>Cancel</button></Sheet>}
-const FIELD_LABEL={title:'Title',content:'Notes',sample_content:'Sample answer',question_pattern:'Question pattern',guideline:'Answer guideline'}
+const FIELD_LABEL={title:'topic.fieldTitle',content:'topic.fieldNotes',sample_content:'topic.sampleAnswer',question_pattern:'topic.questionPattern',guideline:'topic.guideline'}
 const lineDiff=(a,b)=>{const x=a.split('\n'),y=b.split('\n'),n=x.length,m=y.length
   if(n*m>250000)return [...x.map(t=>({k:'del',t})),...y.map(t=>({k:'add',t}))]  // very long texts: show both rather than spend the time
   const L=Array.from({length:n+1},()=>new Uint16Array(m+1))
@@ -660,58 +659,58 @@ const lineDiff=(a,b)=>{const x=a.split('\n'),y=b.split('\n'),n=x.length,m=y.leng
   const out=[];let i=0,j=0
   while(i<n&&j<m){if(x[i]===y[j]){out.push({k:'same',t:x[i]});i++;j++}else if(L[i+1][j]>=L[i][j+1])out.push({k:'del',t:x[i++]});else out.push({k:'add',t:y[j++]})}
   while(i<n)out.push({k:'del',t:x[i++]});while(j<m)out.push({k:'add',t:y[j++]});return out}
-function HistorySheet({tid,close,done,toast}){
+function HistorySheet({tid,close,done,toast}){const {t:tr}=useI18n();
   const confirm=useConfirm()
   const [list,setList]=useState(null),[v,setV]=useState(null),[busy,setBusy]=useState(false)
   useEffect(()=>{api(`/topics/${tid}/versions`).then(setList).catch(e=>{toast(e.message);close()})},[tid,toast,close])
   const open=async x=>{try{setV({...(await api('/topic-versions/'+x.id)),current:x.current})}catch(e){toast(e.message)}}
-  const restore=async()=>{if(!await confirm({title:'Put this version back?',body:'What is there now stays in the history, so you can undo it.',ok:'Restore version'}))return;setBusy(true)
-    try{await api(`/topic-versions/${v.id}/restore`,{method:'POST'});toast('Version restored');done()}catch(e){toast(e.message);setBusy(false)}}
+  const restore=async()=>{if(!await confirm({title:tr('topic.restoreConfirmTitle'),body:tr('topic.restoreConfirmBody'),ok:tr('topic.restoreOk')}))return;setBusy(true)
+    try{await api(`/topic-versions/${v.id}/restore`,{method:'POST'});toast(tr('topic.restored'));done()}catch(e){toast(e.message);setBusy(false)}}
   if(v){const changed=Object.keys(FIELD_LABEL).filter(k=>v[k]!==v.now[k])
-    return <Sheet close={close}><button className="link" onClick={()=>setV(null)}><ChevronLeft size={16}/> All versions</button>
-      <h3>{v.saved_at?when(v.saved_at):'Earlier version'}</h3><p className="known">{v.note}{v.current?' · this is the current text':''}</p>
-      {!changed.length&&<p className="known">Same as the current text.</p>}
-      {changed.map(k=><div key={k} className="qbox"><b>{FIELD_LABEL[k]}</b><p className="known" style={{margin:'2px 0 8px'}}>Red lines are in this version only. Green lines are in the current text.</p>
+    return <Sheet close={close}><button className="link" onClick={()=>setV(null)}><ChevronLeft size={16}/> {tr('topic.allVersions')}</button>
+      <h3>{v.saved_at?when(v.saved_at):tr('topic.earlier')}</h3><p className="known">{v.note}{v.current?' · '+tr('topic.currentText'):''}</p>
+      {!changed.length&&<p className="known">{tr('topic.sameAsCurrent')}</p>}
+      {changed.map(k=><div key={k} className="qbox"><b>{tr(FIELD_LABEL[k])}</b><p className="known" style={{margin:'2px 0 8px'}}>{tr('topic.diffHint')}</p>
         <div className="diff">{lineDiff(v[k],v.now[k]).map((l,i)=><div key={i} className={'dl '+l.k}>{l.t||'\u00a0'}</div>)}</div></div>)}
-      {!v.current&&<button className="btn" disabled={busy} onClick={restore}>Restore this version</button>}<button className="btn ghost" onClick={close}>Close</button></Sheet>}
-  return <Sheet close={close}><h3>Version history</h3><p className="known">Every save is kept (the latest {100}). Pick one to compare it with the current text.</p>
-    {!list?<div className="sk"/>:!list.length?<p className="known">No versions recorded yet. They appear the next time this topic is saved.</p>
-      :list.map(x=><button key={x.id} className="row" style={{width:'100%',textAlign:'left',background:'none'}} onClick={()=>open(x)}><div>{x.saved_at&&!(x.by===null&&x.note.startsWith('Before'))?when(x.saved_at):'Before history began'}<small>{x.note}{x.by?' · '+x.by:''}</small></div>{x.current&&<span className="pill">Current</span>}<ChevronRight size={16}/></button>)}
-    <button className="btn ghost" onClick={close}>Close</button></Sheet>}
-function Topic({id:first,back,toast,role}){
+      {!v.current&&<button className="btn" disabled={busy} onClick={restore}>{tr('topic.restoreVersion')}</button>}<button className="btn ghost" onClick={close}>{tr('common.close')}</button></Sheet>}
+  return <Sheet close={close}><h3>{tr('topic.versionHistory')}</h3><p className="known">{tr('topic.versionsKept',{n:100})}</p>
+    {!list?<div className="sk"/>:!list.length?<p className="known">{tr('topic.noVersions')}</p>
+      :list.map(x=><button key={x.id} className="row" style={{width:'100%',textAlign:'left',background:'none'}} onClick={()=>open(x)}><div>{x.saved_at&&!(x.by===null&&x.note.startsWith('Before'))?when(x.saved_at):tr('topic.beforeHistory')}<small>{x.note}{x.by?' · '+x.by:''}</small></div>{x.current&&<span className="pill">{tr('topic.current')}</span>}<ChevronRight size={16}/></button>)}
+    <button className="btn ghost" onClick={close}>{tr('common.close')}</button></Sheet>}
+function Topic({id:first,back,toast,role}){const {t:tr}=useI18n();
   const [id,setId]=useState(first),[editing,setEditing]=useState(false),[v,setV]=useState(0),[t,setT]=useState(null),[tab,setTab]=useState('notes'),[known,setKnown]=useState([]),[ai,setAi]=useState({}),[aiOk,setAiOk]=useState(null),[ownKey,setOwnKey]=useState(false),[aiMsg,setAiMsg]=useState(''),[busy,setBusy]=useState(false),[bm,setBm]=useState(false),[pv,setPv]=useState(false),[hist,setHist]=useState(false),[cp,setCp]=useState(false),[gone,setGone]=useState('')
   const opened=useRef(false),jump=nid=>{opened.current=false;setGone('');setT(null);setTab('notes');setAi({});setAiMsg('');setKnown([]);setEditing(false);setId(nid);window.scrollTo(0,0)},learn=r=>setT(p=>({...p,status:r.status,overdue:r.overdue,late:r.late,completed_at:r.completed_at}))
   useEffect(()=>{api('/topics/'+id).then(x=>{setT(x);setBm(!!x.bookmarked)
     if(!opened.current){opened.current=true;api(`/topics/${id}/read`,{method:'POST'}).then(r=>{setKnown(r.known);learn(r)}).catch(()=>{})}}).catch(e=>{toast(e.message);if(/unavailable right now/.test(e.message))setGone(e.message)})},[id,v])  // opening starts it, after the page has loaded
-  const setDone=async on=>{try{learn(await api(`/topics/${id}/complete`,{method:on?'PUT':'DELETE'}));toast(on?'Marked as completed':'Marked as not completed')}catch(e){toast(e.message)}}
+  const setDone=async on=>{try{learn(await api(`/topics/${id}/complete`,{method:on?'PUT':'DELETE'}));toast(on?tr('topic.marked'):tr('topic.unmarked'))}catch(e){toast(e.message)}}
   useEffect(()=>{api('/ai/status').then(r=>{setAiOk(r.available);setOwnKey(!!r.own_key)}).catch(()=>{})},[id])
   const ask=async k=>{setBusy(true);setAiMsg('');try{const r=await api(`/topics/${id}/ai/${k}`);setAi(a=>({...a,[k]:r}))}catch(e){setAiMsg(e.message)}setBusy(false)}
   if(editing)return <TopicEditor role={role} toast={toast} edit={{id}} done={()=>{setEditing(false);setV(v+1)}} cancel={()=>setEditing(false)}/>
-  if(gone)return <><Bar title="Unavailable" back={back}/><div className="main"><div className="hero"><h2>{gone}</h2><p>It has been archived. Check back later or ask your teacher.</p></div></div></>
-  if(!t)return <><Bar title="Loading" back={back}/><div className="main"><div className="sk"/><div className="sk"/></div></>
-  const flip=async()=>{const on=!bm;setBm(on);try{await api(`/topics/${id}/bookmark`,{method:on?'PUT':'DELETE'});toast(on?'Bookmarked':'Bookmark removed')}catch(e){setBm(!on);toast(e.message)}}
-  const view=k=>ai[k]?<div className="prose">{ai[k].cached&&<span className="chip">Saved answer · no tokens used</span>}<Md>{ai[k].text}</Md></div>
-    :aiOk===false?<p className="known">{ownKey?'Add your own DeepSeek API key under “My AI key” in the menu to use AI help.':'AI unavailable. Try again later.'}</p>
-    :<><button className="btn" disabled={busy} onClick={()=>ask(k)}><Sparkles size={16}/> {busy?'Thinking…':k==='explain'?'Explain it to me':'Show a sample answer'}</button>{aiMsg&&<p className="known">{aiMsg}</p>}</>
-  return <><Bar title={t.title} sub={[t.program,t.semester,t.course,t.unit].filter(Boolean).join(' › ')} back={back} right={role!=='admin'&&<button className={'ic'+(bm?' on':'')} aria-label={bm?'Remove bookmark':'Bookmark this topic'} aria-pressed={bm} onClick={flip}><Bookmark fill={bm?'currentColor':'none'}/></button>}/><div className="main">
-    {t.can_edit&&pv&&<div className="qbox" style={{marginTop:0}}><b>Previewing as a student</b><p className="known" style={{margin:'4px 0 8px'}}>This is what students see: no editing buttons, and drafts show as unavailable to them.</p><button className="btn ghost" style={{marginTop:0}} onClick={()=>setPv(false)}>Back to editing</button></div>}
-    {t.can_edit&&!pv&&<div className="two" style={{marginBottom:12}}><button className="btn ghost" style={{marginTop:0}} onClick={()=>setEditing(true)}><Pencil size={16}/> Edit topic</button>
-      <button className="btn ghost" style={{marginTop:0}} onClick={async()=>{try{await api(`/topics/${id}/publish`,{method:'PUT',body:{published:!t.published}});toast(t.published?'Moved to drafts':'Published');setV(v+1)}catch(e){toast(e.message)}}}>{t.published?<><EyeOff size={16}/> Unpublish</>:<><Eye size={16}/> Publish</>}</button></div>}
-    <div className="qbox" style={{marginTop:0}}><div className="row"><div>{t.learning_due_at?when(t.learning_due_at):'No deadline'}<small>Learn by</small></div>{t.overdue&&role==='student'&&<span className="pill off sm">Overdue</span>}</div>
-      {role==='student'&&<><div className="row"><div>{STATUS[t.status]}{t.status==='completed'&&t.completed_at&&' on '+when(t.completed_at)+(t.late?', after the deadline':'')}<small>Your status</small></div></div>
-        {t.status==='completed'?<button className="btn ghost" onClick={()=>setDone(false)}>Mark as not completed</button>:<button className="btn" onClick={()=>setDone(true)}><Check size={16}/> Mark as completed</button>}</>}</div>
-    {t.can_edit&&!pv&&<><button className="tool" onClick={()=>setPv(true)}><Eye size={14}/> Preview as student</button><button className="tool" onClick={()=>setHist(true)}><History size={14}/> Version history</button></>}
-    {role!=='student'&&!pv&&<button className="tool" onClick={()=>setCp(true)}><Copy size={14}/> Copy to another course</button>}
+  if(gone)return <><Bar title={tr('home.unavailable')} back={back}/><div className="main"><div className="hero"><h2>{gone}</h2><p>{tr('topic.archivedHint')}</p></div></div></>
+  if(!t)return <><Bar title={tr('common.loading')} back={back}/><div className="main"><div className="sk"/><div className="sk"/></div></>
+  const flip=async()=>{const on=!bm;setBm(on);try{await api(`/topics/${id}/bookmark`,{method:on?'PUT':'DELETE'});toast(on?tr('topic.bookmarked'):tr('topic.bookmarkRemoved'))}catch(e){setBm(!on);toast(e.message)}}
+  const view=k=>ai[k]?<div className="prose">{ai[k].cached&&<span className="chip">{tr('topic.savedAnswer')}</span>}<Md>{ai[k].text}</Md></div>
+    :aiOk===false?<p className="known">{ownKey?tr('topic.addKey'):tr('topic.aiUnavailable')}</p>
+    :<><button className="btn" disabled={busy} onClick={()=>ask(k)}><Sparkles size={16}/> {busy?tr('topic.thinking'):k==='explain'?tr('topic.explainMe'):tr('topic.showSample')}</button>{aiMsg&&<p className="known">{aiMsg}</p>}</>
+  return <><Bar title={t.title} sub={[t.program,t.semester,t.course,t.unit].filter(Boolean).join(' › ')} back={back} right={role!=='admin'&&<button className={'ic'+(bm?' on':'')} aria-label={bm?tr('topic.bookmarkRemoveAria'):tr('topic.bookmarkAria')} aria-pressed={bm} onClick={flip}><Bookmark fill={bm?'currentColor':'none'}/></button>}/><div className="main">
+    {t.can_edit&&pv&&<div className="qbox" style={{marginTop:0}}><b>{tr('topic.previewTitle')}</b><p className="known" style={{margin:'4px 0 8px'}}>{tr('topic.previewHint')}</p><button className="btn ghost" style={{marginTop:0}} onClick={()=>setPv(false)}>{tr('topic.backToEditing')}</button></div>}
+    {t.can_edit&&!pv&&<div className="two" style={{marginBottom:12}}><button className="btn ghost" style={{marginTop:0}} onClick={()=>setEditing(true)}><Pencil size={16}/> {tr('topic.edit')}</button>
+      <button className="btn ghost" style={{marginTop:0}} onClick={async()=>{try{await api(`/topics/${id}/publish`,{method:'PUT',body:{published:!t.published}});toast(t.published?tr('topic.movedDrafts'):tr('topic.published'));setV(v+1)}catch(e){toast(e.message)}}}>{t.published?<><EyeOff size={16}/> {tr('topic.unpublish')}</>:<><Eye size={16}/> {tr('topic.publish')}</>}</button></div>}
+    <div className="qbox" style={{marginTop:0}}><div className="row"><div>{t.learning_due_at?when(t.learning_due_at):tr('learn.noDeadline')}<small>{tr('topic.learnBy')}</small></div>{t.overdue&&role==='student'&&<span className="pill off sm">{tr('home.overdue')}</span>}</div>
+      {role==='student'&&<><div className="row"><div>{tr(STATUS_KEY[t.status])}{t.status==='completed'&&t.completed_at&&' '+tr('topic.onDate',{when:when(t.completed_at)})+(t.late?', '+tr('topic.afterDeadline'):'')}<small>{tr('topic.yourStatus')}</small></div></div>
+        {t.status==='completed'?<button className="btn ghost" onClick={()=>setDone(false)}>{tr('topic.markNotDone')}</button>:<button className="btn" onClick={()=>setDone(true)}><Check size={16}/> {tr('topic.markDone')}</button>}</>}</div>
+    {t.can_edit&&!pv&&<><button className="tool" onClick={()=>setPv(true)}><Eye size={14}/> {tr('topic.previewStudent')}</button><button className="tool" onClick={()=>setHist(true)}><History size={14}/> {tr('topic.versionHistory')}</button></>}
+    {role!=='student'&&!pv&&<button className="tool" onClick={()=>setCp(true)}><Copy size={14}/> {tr('topic.copyCourse')}</button>}
     {cp&&<CopySheet kind="topic" id={id} title={t.title} toast={toast} close={()=>setCp(false)}/>}
     {hist&&<HistorySheet tid={id} toast={toast} close={()=>setHist(false)} done={()=>{setHist(false);setV(v+1)}}/>}
-    {t.can_edit&&!t.published&&<p className="known" style={{marginTop:0}}>Draft · students cannot see it</p>}
-    <Tabs label="Topic sections" items={[['notes','Notes'],['explain','Explain'],['answer','Sample answer']]} value={tab} onChange={setTab}/>
-    {known.length>0&&tab==='explain'&&<p className="known">You’ve already covered: {known.join(', ')}</p>}
-    {tab==='notes'&&<div className="prose"><Md>{t.content||'No notes yet.'}</Md>{t.question_pattern&&<><h3>Question pattern</h3><Md>{t.question_pattern}</Md></>}{t.guideline&&<><h3>Answer guideline</h3><Md>{t.guideline}</Md></>}</div>}
+    {t.can_edit&&!t.published&&<p className="known" style={{marginTop:0}}>{tr('learn.draftHidden')}</p>}
+    <Tabs label={tr('topic.sections')} items={[['notes',tr('topic.notes')],['explain',tr('topic.explain')],['answer',tr('topic.sampleAnswer')]]} value={tab} onChange={setTab}/>
+    {known.length>0&&tab==='explain'&&<p className="known">{tr('topic.covered',{list:known.join(', ')})}</p>}
+    {tab==='notes'&&<div className="prose"><Md>{t.content||tr('topic.noNotes')}</Md>{t.question_pattern&&<><h3>{tr('topic.questionPattern')}</h3><Md>{t.question_pattern}</Md></>}{t.guideline&&<><h3>{tr('topic.guideline')}</h3><Md>{t.guideline}</Md></>}</div>}
     {tab==='explain'&&view('explain')}{tab==='answer'&&view('answer')}
-    {t.nav&&t.nav.total>1&&<nav className="pager" aria-label="Topics in this unit"><button className="btn ghost" disabled={!t.nav.prev} onClick={()=>jump(t.nav.prev.id)} aria-label={t.nav.prev?'Previous topic: '+t.nav.prev.title:'No previous topic'}><ChevronLeft size={18}/><span>{t.nav.prev?t.nav.prev.title:'Previous'}</span></button>
-      <small>{t.nav.position} of {t.nav.total}</small>
-      <button className={'btn'+(t.nav.next?'':' ghost')} disabled={!t.nav.next} onClick={()=>jump(t.nav.next.id)} aria-label={t.nav.next?'Next topic: '+t.nav.next.title:'No next topic'}><span>{t.nav.next?t.nav.next.title:'Next'}</span><ChevronRight size={18}/></button></nav>}</div></>}
+    {t.nav&&t.nav.total>1&&<nav className="pager" aria-label={tr('topic.pagerLabel')}><button className="btn ghost" disabled={!t.nav.prev} onClick={()=>jump(t.nav.prev.id)} aria-label={t.nav.prev?tr('topic.prevTopic',{title:t.nav.prev.title}):tr('topic.noPrev')}><ChevronLeft size={18}/><span>{t.nav.prev?t.nav.prev.title:tr('home.next')}</span></button>
+      <small>{tr('topic.position',{a:t.nav.position,b:t.nav.total})}</small>
+      <button className={'btn'+(t.nav.next?'':' ghost')} disabled={!t.nav.next} onClick={()=>jump(t.nav.next.id)} aria-label={t.nav.next?tr('topic.nextTopic',{title:t.nav.next.title}):tr('topic.noNext')}><span>{t.nav.next?t.nav.next.title:tr('home.next')}</span><ChevronRight size={18}/></button></nav>}</div></>}
 
 function TopicEditor({role,toast,done,cancel,edit,unitId}){  // edit = {id} of a topic, or null for a new one in unitId
   const fac=role==='faculty',[prev,setPrev]=useState(false),[up,setUp]=useState(false),fileRef=useRef(null),taRef=useRef(null),[busy,setBusy]=useState(false)
@@ -802,14 +801,14 @@ const PATTERN={semester:['Semesters','Semester',8,'Semester pattern, for example
 
 const BULK_TEXT={disable:['Disable these accounts?','They can no longer sign in. Their progress and quiz results are kept, and you can enable them again.','Disable'],
   enable:['Enable these accounts?','They can sign in again.','Enable'],reset_passwords:['Reset these passwords?','Each person gets a new one-time password and must choose their own at next sign-in. Anyone signed in is signed out. You download the list once; it is not shown again.','Reset passwords']}
-function BulkSheet({act,ids,progs,toast,close,done}){
+function BulkSheet({act,ids,progs,toast,close,done}){const {t:tr}=useI18n();
   const [p,setP]=useState(''),[s,setS]=useState(''),[busy,setBusy]=useState(false)
   if(act.kind==='result'){const r=act.r,cell=v=>'"'+String(v).replace(/"/g,'""')+'"'
     return <Sheet close={close}><h3>{pl(r.changed,'account')} updated</h3>
       {r.courses_needing_owner>0&&<p className="known">{pl(r.courses_needing_owner,'course')} now {r.courses_needing_owner===1?'has':'have'} no active owner. Assign new owners under Programs.</p>}
       {r.skipped_count>0&&<div className="qbox"><b>{r.skipped_count} skipped</b>{r.skipped.slice(0,10).map(x=><p className="known" style={{margin:'4px 0'}} key={x.id}>{x.name}: {x.reason}</p>)}{r.skipped_count>10&&<p className="known">…and {r.skipped_count-10} more.</p>}</div>}
       {r.credentials&&<button className="btn" onClick={()=>download('new-passwords.csv','name,email,password\n'+r.credentials.map(c=>[c.name,c.email,c.password].map(cell).join(',')).join('\n')+'\n')}>Download the new passwords</button>}
-      <button className="btn ghost" onClick={close}>Close</button></Sheet>}
+      <button className="btn ghost" onClick={close}>{tr('common.close')}</button></Sheet>}
   const run=async()=>{setBusy(true);try{done(await api('/admin/users/bulk',{method:'POST',body:{ids,action:act.kind,...(act.kind==='set_placement'?{program_id:+p,semester:s?+s:null}:{})}}))}catch(e){toast(e.message);setBusy(false)}}
   if(act.kind==='set_placement')return <Sheet close={close}><h3>Move {pl(ids.length,'user')}</h3><p className="known">Sets the program and semester, year or grade of the selected students. Faculty and admins in the selection are skipped.</p>
     <label htmlFor="bp">Program</label><select id="bp" value={p} onChange={e=>{const id=e.target.value;setP(id);if(+s>semsOf(progs,id).length)setS('')}}><option value="">Choose a program</option>{progs.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select>
