@@ -420,13 +420,13 @@ function Insights({toast,role}){const {t:tr}=useI18n();
 
 const uploadImg=async f=>{const r=await fetch('/api/uploads',{method:'POST',headers:{'Content-Type':f.type||'application/octet-stream',Authorization:'Bearer '+localStorage.t},body:f}),j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.detail||'Upload failed');return j.url}
 // one image place on a question or an answer: shows the image, the file the CSV asked for, or a small "Add image" button
-function ImgSlot({url,need,label,onSet,toast,small}){
+function ImgSlot({url,need,label,onSet,toast,small}){const {t:tr}=useI18n();
   const ref=useRef(),[busy,setBusy]=useState(false)
   const pick=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;setBusy(true);try{onSet(await uploadImg(f))}catch(x){toast(x.message)}setBusy(false)}
   const input=<input ref={ref} type="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden onChange={pick}/>
-  if(url)return <div className={'islot'+(small?' sm':'')}>{input}<img src={url} alt={label}/><span><button className="tool" onClick={()=>ref.current.click()}>Replace</button><button className="tool" onClick={()=>onSet('')}>Remove image</button></span></div>
-  if(need)return <div className="islot need" role="status">{input}<AlertTriangle size={16}/><span>Needs <b>{need}</b></span><button className="tool" disabled={busy} onClick={()=>ref.current.click()}>{busy?'Uploading…':'Upload'}</button><button className="tool" onClick={()=>onSet('',true)}>Skip</button></div>
-  return <>{input}<button className="tool" disabled={busy} onClick={()=>ref.current.click()} aria-label={'Add image to '+label}>{busy?'Uploading…':small?'Image':'Add image'}</button></>}
+  if(url)return <div className={'islot'+(small?' sm':'')}>{input}<img src={url} alt={label}/><span><button className="tool" onClick={()=>ref.current.click()}>{tr('qe.replace')}</button><button className="tool" onClick={()=>onSet('')}>{tr('qe.removeImg')}</button></span></div>
+  if(need)return <div className="islot need" role="status">{input}<AlertTriangle size={16}/><span>{tr('qe.needs')} <b>{need}</b></span><button className="tool" disabled={busy} onClick={()=>ref.current.click()}>{busy?tr('qe.uploading'):tr('qe.upload')}</button><button className="tool" onClick={()=>onSet('',true)}>{tr('qe.skip')}</button></div>
+  return <>{input}<button className="tool" disabled={busy} onClick={()=>ref.current.click()} aria-label={tr('qe.addImgTo',{label})}>{busy?tr('qe.uploading'):small?tr('qe.imageSm'):tr('qe.addImage')}</button></>}
 const QImg=({src,alt})=>src?<img className="qimg" src={src} alt={alt} loading="lazy"/>:null
 const OptBody=({text,img,k})=><span className="obody">{img&&<img src={img} alt={'Answer '+LET[k]}/>}{text?<Md>{text}</Md>:!img&&<span>—</span>}</span>
 const LET='ABCDEF'
@@ -483,10 +483,8 @@ const MCQ_TEMPLATE=`question,a,b,c,d,correct,explanation,topic,area,question_ima
 "Pick the symbol for a resistor",,,,,C,,,Circuit symbols,,sym-a.png,sym-b.png,sym-c.png,sym-d.png
 "What is 15% of 200?",20,30,15,35,30,,,Arithmetic,,,,,
 `
-const CSV_COLS=[['question','The question. Markdown and $math$ work.'],['a, b, c, d (up to f)','The answer choices. Leave the later ones blank if a question has fewer. A choice can be only an image.'],
-  ['correct','The right answer: its letter (B), its number (2) or its exact text.'],['explanation','Optional. Shown after submitting when the test reveals answers.'],
-  ['topic','Optional. A topic title from this course; strengths are worked out per topic.'],['area','Optional. A skill or area name for questions not tied to a topic.'],
-  ['question_image, a_image … f_image','Optional. Image file names. You upload the files in the preview, matched by name.']]
+const CSV_COLS=[['question','qe.c.question'],['a, b, c, d (up to f)','qe.c.answers'],['correct','qe.c.correct'],['explanation','qe.c.expl'],
+  ['topic','qe.c.topic'],['area','qe.c.area'],['question_image, a_image … f_image','qe.c.images']]
 const blankQ=()=>({text:'',options:['',''],option_images:['',''],correct:0,explanation:'',topic_id:null,area:'',image:'',need:{image:'',options:[]}})
 const fromCsv=x=>({text:x.text,options:x.options,option_images:x.option_images.map(v=>v||''),correct:x.correct,explanation:x.explanation||'',topic_id:x.topic_id,area:x.area||'',image:x.image||'',
   need:{image:x.image?'':x.image_name,options:x.option_image_names.map((n,k)=>x.option_images[k]?'':n)}})
@@ -508,58 +506,58 @@ function QuizEditor({id,unit_id,course_id,unitTopics,csvFirst,done,toast}){const
   const payload=()=>qs.filter(x=>x.text.trim()||x.image).map(x=>({text:x.text,options:x.options,option_images:x.option_images,correct:x.correct,explanation:x.explanation,topic_id:x.topic_id,area:x.area,image:x.image}))
   const save=async()=>{setBusy(true);try{const body={...(course?{course_id:cid}:{unit_id}),...m,pass_percent:+m.pass_percent},qid=id||(await api('/quizzes',{method:'POST',body})).id
     if(id)await api('/quizzes/'+id,{method:'PUT',body})
-    await api(`/quizzes/${qid}/questions`,{method:'PUT',body:{questions:payload()}});toast(course?'Test saved':'Quiz saved');done()}catch(e){toast(e.message)}setBusy(false)}
+    await api(`/quizzes/${qid}/questions`,{method:'PUT',body:{questions:payload()}});toast(course?tr('qe.testSaved'):tr('qe.quizSaved'));done()}catch(e){toast(e.message)}setBusy(false)}
   const readCsv=async(f,replace)=>{try{const r=await api('/quizzes/parse-csv',{method:'POST',body:{csv:await f.text(),...(course?{course_id:cid}:{unit_id})}});setCsv(r)
-    if(!r.questions.length){toast('No questions could be read from the file');return}
+    if(!r.questions.length){toast(tr('qe.noQuestions'));return}
     const got=r.questions.map(fromCsv);setQs(cur=>replace?got:[...cur.filter(x=>x.text.trim()||x.image),...got])
     if(replace&&!m.title)setM(v=>({...v,title:f.name.replace(/\.[^.]+$/,'').replace(/[_-]+/g,' ').slice(0,200)}))
-    setStage('edit');toast(`${pl(r.questions.length,'question')} read. Check them below${r.images_needed.length?' and upload the images':''}, then save.`)}catch(e){toast(e.message)}}
+    setStage('edit');toast(tr('qe.read',{count:tr(r.questions.length===1?'quiz.qOne':'quiz.qMany',{n:r.questions.length}),images:r.images_needed.length?tr('qe.andUpload'):''}))}catch(e){toast(e.message)}}
   const importCsv=async e=>{const f=e.target.files[0];e.target.value='';if(f)readCsv(f,stage==='csv')}
   const bulkImages=async e=>{const files=[...e.target.files];e.target.value='';if(!files.length)return;setBusy(true);let used=0;const extra=[];let next=qs
     for(const f of files){const hits=missing(next).filter(s=>s.name.toLowerCase()===f.name.toLowerCase());if(!hits.length){extra.push(f.name);continue}
       try{const url=await uploadImg(f);used++;next=next.map((x,i)=>{const h=hits.filter(s=>s.i===i);if(!h.length)return x
         return {...x,image:h.some(s=>s.k<0)?url:x.image,option_images:x.option_images.map((v,k)=>h.some(s=>s.k===k)?url:v),need:{image:h.some(s=>s.k<0)?'':x.need.image,options:x.need.options.map((n,k)=>h.some(s=>s.k===k)?'':n)}}})}catch(x){toast(f.name+': '+x.message)}}
-    setQs(next);setBusy(false);toast(`${pl(used,'image')} matched${extra.length?`. Not in the CSV: ${extra.slice(0,3).join(', ')}${extra.length>3?'…':''}`:''}`)}
-  const addFromBank=picked=>{setQs(cur=>[...cur.filter(x=>x.text.trim()),...picked.map(x=>({...blankQ(),text:x.text,options:x.options,option_images:x.options.map(()=>''),correct:x.correct,explanation:x.explanation||''}))]);setBank(false);toast(`${pl(picked.length,'question')} added. Tie them to topics if you like, then save.`)}
+    setQs(next);setBusy(false);toast(tr('qe.matched',{count:tr(used===1?'qe.imgOne':'qe.imgMany',{n:used}),extra:extra.length?tr('qe.notInCsv',{names:extra.slice(0,3).join(', ')+(extra.length>3?'…':'')}):''}))}
+  const addFromBank=picked=>{setQs(cur=>[...cur.filter(x=>x.text.trim()),...picked.map(x=>({...blankQ(),text:x.text,options:x.options,option_images:x.options.map(()=>''),correct:x.correct,explanation:x.explanation||''}))]);setBank(false);toast(tr('qe.added',{count:tr(picked.length===1?'quiz.qOne':'quiz.qMany',{n:picked.length})}))}
   const toBank=async()=>{const list=qs.filter(x=>x.text.trim());let added=0,skipped=0,bad=0;setBusy(true)
     for(const x of list){if(x.image||x.option_images.some(Boolean)){bad++;continue}try{await api('/bank',{method:'POST',body:{text:x.text,options:x.options,correct:x.correct,explanation:x.explanation,tags:btags,source:m.title}});added++}catch(e){/already in the bank/.test(e.message)?skipped++:bad++}}
-    setBusy(false);toast(`${added} saved to the bank${skipped?`, ${skipped} already there`:''}${bad?`, ${bad} skipped (incomplete or with images)`:''}`)}
-  const del=async()=>{if(!await confirm({title:`Delete this ${course?'test':'quiz'}?`,body:"This also deletes every student attempt. This can't be undone.",ok:'Delete',danger:true}))return;try{await api('/quizzes/'+id,{method:'DELETE'});toast('Deleted');done()}catch(e){toast(e.message)}}
+    setBusy(false);toast(tr('qe.bankDone',{added,skipped:skipped?tr('qe.alreadyThere',{n:skipped}):'',bad:bad?tr('qe.badSkipped',{n:bad}):''}))}
+  const del=async()=>{if(!await confirm({title:tr('qe.delTitle',{what:course?tr('qe.test'):tr('qe.quiz')}),body:tr('qe.delBody'),ok:tr('sheet.delete'),danger:true}))return;try{await api('/quizzes/'+id,{method:'DELETE'});toast(tr('sheet.deleted'));done()}catch(e){toast(e.message)}}
   const fileInputs=<><input ref={csvRef} type="file" accept=".csv,text/csv,text/plain" hidden onChange={importCsv}/><input ref={imgRef} type="file" accept="image/png,image/jpeg,image/gif,image/webp" multiple hidden onChange={bulkImages}/></>
-  const csvNotes=csv&&(csv.error_count>0||csv.warnings.length>0)&&<div className="qbox" role="alert">{csv.error_count>0&&<><b>{pl(csv.error_count,'row')} could not be read and {csv.error_count===1?'was':'were'} left out</b>{csv.errors.slice(0,10).map((x,i)=><p className="known" style={{margin:'4px 0'}} key={i}>Row {x.row}: {x.error}</p>)}{csv.error_count>10&&<p className="known">…and {csv.error_count-10} more.</p>}</>}
-    {csv.warnings.length>0&&<><b style={{display:'block',marginTop:csv.error_count?10:0}}>Worth a look</b>{csv.warnings.slice(0,8).map((w,i)=><p className="known" style={{margin:'4px 0'}} key={i}>{w}</p>)}{csv.warnings.length>8&&<p className="known">…and {csv.warnings.length-8} more.</p>}</>}</div>
-  if(stage==='csv')return <><Bar title="New MCQ test" sub="Step 1 of 2 · attach the questions CSV" back={done}/><div className="main">{fileInputs}
-    <p className="known" style={{marginTop:0}}>A course test is built from a CSV file with one question per row. In the next step you check every question, upload any pictures for questions and answer choices, then save.</p>
-    <button className="btn" onClick={()=>csvRef.current.click()}><Upload size={16}/> Choose the CSV file</button><button className="btn ghost" onClick={()=>download('mcq-template.csv',MCQ_TEMPLATE)}>Download the template</button>
+  const csvNotes=csv&&(csv.error_count>0||csv.warnings.length>0)&&<div className="qbox" role="alert">{csv.error_count>0&&<><b>{tr(csv.error_count===1?'qe.rowsFailOne':'qe.rowsFailMany',{n:csv.error_count})}</b>{csv.errors.slice(0,10).map((x,i)=><p className="known" style={{margin:'4px 0'}} key={i}>{tr('prog.rowErr',{row:x.row,error:x.error})}</p>)}{csv.error_count>10&&<p className="known">{tr('bulk.andMore',{n:csv.error_count-10})}</p>}</>}
+    {csv.warnings.length>0&&<><b style={{display:'block',marginTop:csv.error_count?10:0}}>{tr('qe.worth')}</b>{csv.warnings.slice(0,8).map((w,i)=><p className="known" style={{margin:'4px 0'}} key={i}>{w}</p>)}{csv.warnings.length>8&&<p className="known">{tr('bulk.andMore',{n:csv.warnings.length-8})}</p>}</>}</div>
+  if(stage==='csv')return <><Bar title={tr('qe.newMcq')} sub={tr('qe.step1')} back={done}/><div className="main">{fileInputs}
+    <p className="known" style={{marginTop:0}}>{tr('qe.csvIntro')}</p>
+    <button className="btn" onClick={()=>csvRef.current.click()}><Upload size={16}/> {tr('qe.chooseCsv')}</button><button className="btn ghost" onClick={()=>download('mcq-template.csv',MCQ_TEMPLATE)}>{tr('qe.downloadTpl')}</button>
     {csvNotes}
-    <h3 className="sec">Columns</h3>{CSV_COLS.map(([c,h])=><div className="row" key={c}><div><code>{c}</code><small>{h}</small></div></div>)}
-    <p className="known">The first row names the columns. Comma, semicolon and tab separated files all work. A course test holds up to 200 questions.</p></div></>
-  return <><Bar title={id?(course?'Edit test':'Edit quiz'):csvFirst?'New MCQ test':'New quiz'} sub={csvFirst&&!id?'Step 2 of 2 · check, add images, save':''} back={done}/><div className="main">{fileInputs}
+    <h3 className="sec">{tr('qe.columns')}</h3>{CSV_COLS.map(([c,h])=><div className="row" key={c}><div><code>{c}</code><small>{tr(h)}</small></div></div>)}
+    <p className="known">{tr('qe.firstRow')}</p></div></>
+  return <><Bar title={id?(course?tr('qe.editTest'):tr('qe.editQuiz')):csvFirst?tr('qe.newMcq'):tr('qe.newQuiz')} sub={csvFirst&&!id?tr('qe.step2'):''} back={done}/><div className="main">{fileInputs}
     {csvNotes}
-    {todo.length>0&&<div className="qbox need" role="status"><b>{pl(todo.length,'image')} still to upload</b><p className="known" style={{margin:'4px 0 8px'}}>Choose them all at once and they are matched to their questions by file name, or upload each one below. {[...new Set(todo.map(x=>x.name))].slice(0,6).join(', ')}{todo.length>6?'…':''}</p>
-      <button className="btn" style={{margin:0}} disabled={busy} onClick={()=>imgRef.current.click()}><Upload size={16}/> {busy?'Uploading…':'Upload images'}</button></div>}
-    <label>Title</label><input value={m.title} onChange={e=>setM({...m,title:e.target.value})} placeholder={course?'e.g. Chemistry final MCQ':'e.g. Water treatment check'}/>
-    <label>Pass mark (%)</label><input type="number" min="1" max="100" value={m.pass_percent} onChange={e=>setM({...m,pass_percent:e.target.value})}/>
-    <label className="chk"><input type="checkbox" checked={m.published} onChange={e=>setM({...m,published:e.target.checked})}/> Published (students can take it)</label>
-    <label className="chk"><input type="checkbox" checked={m.reveal} onChange={e=>setM({...m,reveal:e.target.checked})}/> Show students the correct answers and explanations after they submit</label>
+    {todo.length>0&&<div className="qbox need" role="status"><b>{tr('qe.stillUpload',{count:tr(todo.length===1?'qe.imgOne':'qe.imgMany',{n:todo.length})})}</b><p className="known" style={{margin:'4px 0 8px'}}>{tr('qe.matchHint')}{[...new Set(todo.map(x=>x.name))].slice(0,6).join(', ')}{todo.length>6?'…':''}</p>
+      <button className="btn" style={{margin:0}} disabled={busy} onClick={()=>imgRef.current.click()}><Upload size={16}/> {busy?tr('qe.uploading'):tr('qe.uploadImages')}</button></div>}
+    <label>{tr('qe.title')}</label><input value={m.title} onChange={e=>setM({...m,title:e.target.value})} placeholder={course?tr('qe.coursePh'):tr('qe.quizTitlePh')}/>
+    <label>{tr('qe.passMark')}</label><input type="number" min="1" max="100" value={m.pass_percent} onChange={e=>setM({...m,pass_percent:e.target.value})}/>
+    <label className="chk"><input type="checkbox" checked={m.published} onChange={e=>setM({...m,published:e.target.checked})}/> {tr('qe.published')}</label>
+    <label className="chk"><input type="checkbox" checked={m.reveal} onChange={e=>setM({...m,reveal:e.target.checked})}/> {tr('qe.reveal')}</label>
     {qs.map((x,i)=><div className="qbox" key={i}><b>{tr('quiz.question',{n:i+1})}</b>
-      <textarea placeholder="Question (Markdown and $math$ work)" value={x.text} onChange={e=>upd(i,{text:e.target.value})}/>
-      <ImgSlot url={x.image} need={x.need.image} label={'question '+(i+1)} toast={toast} onSet={(v,skip)=>setQImg(i,v,skip)}/>
-      {x.options.map((o,k)=><div key={k}><div className="qopt"><input type="radio" name={'c'+i} aria-label={'Answer '+LET[k]+' is correct'} checked={x.correct===k} onChange={()=>upd(i,{correct:k})}/><b className="olet">{LET[k]}</b><input value={o} placeholder={'Answer '+LET[k]+(x.option_images[k]?' (optional with an image)':'')} onChange={e=>setOpt(i,k,e.target.value)}/>
-        {!x.option_images[k]&&!x.need.options[k]&&<ImgSlot small label={'answer '+LET[k]} toast={toast} onSet={v=>setOptImg(i,k,v)}/>}{x.options.length>2&&<button className="ic sm" aria-label={'Remove answer '+LET[k]} onClick={()=>delOpt(i,k)}><X size={16}/></button>}</div>
-        {(x.option_images[k]||x.need.options[k])&&<div style={{paddingLeft:48}}><ImgSlot small url={x.option_images[k]} need={x.need.options[k]} label={'answer '+LET[k]} toast={toast} onSet={(v,skip)=>setOptImg(i,k,v,skip)}/></div>}</div>)}
-      {x.options.length<6&&<button className="tool" onClick={()=>upd(i,{options:[...x.options,''],option_images:[...x.option_images,'']})}>Add answer</button>}
-      <label>Topic this tests</label><select value={x.topic_id??''} onChange={e=>upd(i,{topic_id:e.target.value?+e.target.value:null})}><option value="">Not tied to one topic</option>{topics.map(t=><option key={t.id} value={t.id}>{t.unit?t.unit+' › ':''}{t.title}</option>)}</select>
-      {x.topic_id==null&&<><label>Area or skill</label><input value={x.area} onChange={e=>upd(i,{area:e.target.value})} placeholder="e.g. Arithmetic (used for strengths when there is no topic)"/></>}
-      <textarea placeholder="Explanation shown after submitting (optional)" value={x.explanation} onChange={e=>upd(i,{explanation:e.target.value})}/>
-      {qs.length>1&&<button className="tool" onClick={()=>setQs(qs.filter((_,n)=>n!==i))}>Remove question</button>}</div>)}
-    <p className="known">Tick the radio button beside the correct answer. Tie each question to the topic it tests, or name an area: students then see what they are good at and what needs another round of study.</p>
-    <button className="btn ghost" onClick={()=>setQs([...qs,blankQ()])}>Add question</button>
-    <div className="two"><button className="btn ghost" onClick={()=>csvRef.current.click()}><Upload size={16}/> Add from a CSV</button><button className="btn ghost" onClick={()=>download('mcq-template.csv',MCQ_TEMPLATE)}>CSV template</button></div>
-    <button className="btn ghost" onClick={()=>setBank(true)}>Add from the question bank</button>
-    <label htmlFor="bt">Share these questions in the bank</label><div className="two"><input id="bt" value={btags} onChange={e=>setBtags(e.target.value)} placeholder="Tags, e.g. water, hardness (optional)"/><button className="btn ghost" disabled={busy||!qs.some(x=>x.text.trim())} onClick={toBank}>Save to bank</button></div>
-    <button className="btn" disabled={busy||todo.length>0} onClick={save}>{busy?'Saving…':todo.length?`Upload ${pl(todo.length,'image')} first`:id?'Save changes':course?'Create test':'Save quiz'}</button>{bank&&<BankSheet close={()=>setBank(false)} onAdd={addFromBank} toast={toast}/>}
-    {id&&<button className="btn danger" onClick={del}>Delete {course?'test':'quiz'}</button>}</div></>}
+      <textarea placeholder={tr('qe.qPh')} value={x.text} onChange={e=>upd(i,{text:e.target.value})}/>
+      <ImgSlot url={x.image} need={x.need.image} label={tr('qe.questionLbl',{n:i+1})} toast={toast} onSet={(v,skip)=>setQImg(i,v,skip)}/>
+      {x.options.map((o,k)=><div key={k}><div className="qopt"><input type="radio" name={'c'+i} aria-label={tr('qe.correctAria',{letter:LET[k]})} checked={x.correct===k} onChange={()=>upd(i,{correct:k})}/><b className="olet">{LET[k]}</b><input value={o} placeholder={tr(x.option_images[k]?'qe.answerImgPh':'qe.answerPh',{letter:LET[k]})} onChange={e=>setOpt(i,k,e.target.value)}/>
+        {!x.option_images[k]&&!x.need.options[k]&&<ImgSlot small label={tr('qe.answerLbl',{letter:LET[k]})} toast={toast} onSet={v=>setOptImg(i,k,v)}/>}{x.options.length>2&&<button className="ic sm" aria-label={tr('qe.removeAnswer',{letter:LET[k]})} onClick={()=>delOpt(i,k)}><X size={16}/></button>}</div>
+        {(x.option_images[k]||x.need.options[k])&&<div style={{paddingLeft:48}}><ImgSlot small url={x.option_images[k]} need={x.need.options[k]} label={tr('qe.answerLbl',{letter:LET[k]})} toast={toast} onSet={(v,skip)=>setOptImg(i,k,v,skip)}/></div>}</div>)}
+      {x.options.length<6&&<button className="tool" onClick={()=>upd(i,{options:[...x.options,''],option_images:[...x.option_images,'']})}>{tr('qe.addAnswer')}</button>}
+      <label>{tr('qe.topicLbl')}</label><select value={x.topic_id??''} onChange={e=>upd(i,{topic_id:e.target.value?+e.target.value:null})}><option value="">{tr('qe.notTied')}</option>{topics.map(t=><option key={t.id} value={t.id}>{t.unit?t.unit+' › ':''}{t.title}</option>)}</select>
+      {x.topic_id==null&&<><label>{tr('qe.area')}</label><input value={x.area} onChange={e=>upd(i,{area:e.target.value})} placeholder={tr('qe.areaPh')}/></>}
+      <textarea placeholder={tr('qe.explPh')} value={x.explanation} onChange={e=>upd(i,{explanation:e.target.value})}/>
+      {qs.length>1&&<button className="tool" onClick={()=>setQs(qs.filter((_,n)=>n!==i))}>{tr('qe.removeQ')}</button>}</div>)}
+    <p className="known">{tr('qe.tickHint')}</p>
+    <button className="btn ghost" onClick={()=>setQs([...qs,blankQ()])}>{tr('qe.addQ')}</button>
+    <div className="two"><button className="btn ghost" onClick={()=>csvRef.current.click()}><Upload size={16}/> {tr('qe.addCsv')}</button><button className="btn ghost" onClick={()=>download('mcq-template.csv',MCQ_TEMPLATE)}>{tr('qe.csvTpl')}</button></div>
+    <button className="btn ghost" onClick={()=>setBank(true)}>{tr('qe.fromBank')}</button>
+    <label htmlFor="bt">{tr('qe.shareBank')}</label><div className="two"><input id="bt" value={btags} onChange={e=>setBtags(e.target.value)} placeholder={tr('qe.tagsPh')}/><button className="btn ghost" disabled={busy||!qs.some(x=>x.text.trim())} onClick={toBank}>{tr('qe.saveBank')}</button></div>
+    <button className="btn" disabled={busy||todo.length>0} onClick={save}>{busy?tr('qe.saving'):todo.length?tr('qe.uploadFirst',{count:tr(todo.length===1?'qe.imgOne':'qe.imgMany',{n:todo.length})}):id?tr('topic.saveChanges'):tr(course?'qe.createTest':'qe.saveQuiz')}</button>{bank&&<BankSheet close={()=>setBank(false)} onAdd={addFromBank} toast={toast}/>}
+    {id&&<button className="btn danger" onClick={del}>{tr('qe.deleteBtn',{what:course?tr('qe.test'):tr('qe.quiz')})}</button>}</div></>}
 
 // score spread: one series, so one hue and no legend; every bar has its count as text and a tooltip
 const Spread=({rows,pass})=>{const top=Math.max(1,...rows.map(r=>r.count))
